@@ -8,7 +8,7 @@
 size = Vector3(0.65, 0.4, 0.5)
 
 [sub_resource type="StandardMaterial3D" id="r2"]
-albedo_color = Color(0.8353, 0.7098, 0.3961, 1)
+albedo_color = Color(1.0, 0.8235, 0.2902, 1)
 roughness = 0.82
 
 [sub_resource type="BoxShape3D" id="r3"]

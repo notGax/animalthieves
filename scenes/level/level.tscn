@@ -10,14 +10,14 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/player_list_ui.tscn" id="9_player_list"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_main"]
-sky_top_color = Color(0.46, 0.67, 0.75, 1)
-sky_horizon_color = Color(0.88, 0.79, 0.62, 1)
-sky_curve = 0.12
-ground_bottom_color = Color(0.12, 0.14, 0.17, 1)
-ground_horizon_color = Color(0.52, 0.61, 0.68, 1)
-ground_curve = 0.08
-sun_angle_max = 20.0
-sun_curve = 0.1
+sky_top_color = Color(0.27, 0.50, 0.72, 1)
+sky_horizon_color = Color(0.98, 0.77, 0.50, 1)
+sky_curve = 0.16
+ground_bottom_color = Color(0.16, 0.13, 0.19, 1)
+ground_horizon_color = Color(0.60, 0.47, 0.42, 1)
+ground_curve = 0.1
+sun_angle_max = 30.0
+sun_curve = 0.12
 
 [sub_resource type="Sky" id="Sky_main"]
 sky_material = SubResource("ProceduralSkyMaterial_main")
@@ -26,22 +26,33 @@ sky_material = SubResource("ProceduralSkyMaterial_main")
 background_mode = 2
 sky = SubResource("Sky_main")
 ambient_light_source = 3
-ambient_light_color = Color(0.56, 0.68, 0.61, 1)
-ambient_light_energy = 0.85
+ambient_light_color = Color(0.63, 0.58, 0.72, 1)
+ambient_light_energy = 1.0
 reflected_light_source = 2
-tonemap_mode = 2
+tonemap_mode = 3
+tonemap_white = 6.0
 ssao_enabled = true
-ssao_radius = 0.7
-ssao_intensity = 0.5
-ssao_power = 1.1
-ssao_detail = 0.35
+ssao_radius = 0.6
+ssao_intensity = 0.38
+ssao_power = 1.2
+ssao_detail = 0.3
+glow_enabled = true
+glow_intensity = 0.55
+glow_strength = 0.9
+glow_bloom = 0.04
+glow_hdr_threshold = 1.2
+glow_blend_mode = 2
 fog_enabled = true
-fog_light_color = Color(0.66, 0.75, 0.70, 1)
-fog_light_energy = 0.8
-fog_sun_scatter = 0.08
-fog_density = 0.0025
-fog_aerial_perspective = 0.45
-fog_sky_affect = 0.65
+fog_light_color = Color(0.72, 0.6, 0.66, 1)
+fog_light_energy = 1.0
+fog_sun_scatter = 0.2
+fog_density = 0.0012
+fog_aerial_perspective = 0.3
+fog_sky_affect = 0.35
+adjustments_enabled = true
+adjustments_brightness = 1.02
+adjustments_contrast = 1.07
+adjustments_saturation = 1.16
 
 [node name="Level" type="Node3D" unique_id=1359265925]
 script = ExtResource("1_e1sh7")
@@ -62,11 +73,14 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 environment = SubResource("Environment_qb4jd")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="Environment" unique_id=2096374065]
-transform = Transform3D(1, 0, 0, 0, -0.50000024, 0.8660253, 0, -0.8660253, -0.50000024, 0, 9.597253, 0)
-light_color = Color(1, 0.94, 0.84, 1)
-light_energy = 0.9
+rotation_degrees = Vector3(-40, 35, 0)
+light_color = Color(1, 0.92, 0.78, 1)
+light_energy = 1.3
+light_angular_distance = 1.5
 shadow_enabled = true
-shadow_blur = 0.5
+shadow_blur = 1.1
+directional_shadow_mode = 2
+directional_shadow_max_distance = 90.0
 
 [node name="ItemContainer" type="Node3D" parent="Environment" unique_id=1445003613]
 

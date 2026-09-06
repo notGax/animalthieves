@@ -151,12 +151,15 @@ func _add_player(id: int, player_info: Dictionary) -> Character:
 	var player = player_scene.instantiate()
 	player.name = str(id)
 	player.position = get_spawn_point(id)
-	players_container.add_child(player, true)
 
 	var nick = Network.sanitize_nickname(str(player_info.get("nick", "")), "Player_" + str(id))
-	player.nickname.text = nick
-
 	var skin_enum = Network.sanitize_skin_value(player_info.get("skin", Character.SkinColor.BLUE))
+	# Skin must land on the character before add_child: the slime builds its
+	# body from skin_color inside _ready. The nickname label is @onready, so
+	# its text assignment waits until the player is inside the tree.
+	player.skin_color = skin_enum
+	players_container.add_child(player, true)
+	player.nickname.text = nick
 	player.set_player_skin(skin_enum)
 	_apply_player_nickname_height(id)
 	return player

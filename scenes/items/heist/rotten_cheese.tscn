@@ -8,7 +8,7 @@
 size = Vector3(0.65, 0.4, 0.5)
 
 [sub_resource type="StandardMaterial3D" id="r2"]
-albedo_color = Color(0.7725, 0.8078, 0.4118, 1)
+albedo_color = Color(0.949, 0.851, 0.5451, 1)
 roughness = 0.82
 
 [sub_resource type="CylinderMesh" id="r3"]
@@ -17,9 +17,12 @@ bottom_radius = 0.07
 height = 0.01
 radial_segments = 12
 
-[sub_resource type="StandardMaterial3D" id="r4"]
-albedo_color = Color(0.4902, 0.5765, 0.2824, 1)
-roughness = 0.82
+[sub_resource type="ShaderMaterial" id="r4"]
+shader = ExtResource("surface")
+shader_parameter/atlas = ExtResource("atlas")
+shader_parameter/surface_kind = 0
+shader_parameter/tile_size = 4.0
+shader_parameter/tint = Color(1.08, 0.85, 0.82, 1)
 
 [sub_resource type="CylinderMesh" id="r5"]
 top_radius = 0.07

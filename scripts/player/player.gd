@@ -423,12 +423,18 @@ func _get_texture_from_name(color: SkinColor) -> CompressedTexture2D:
 
 
 func set_player_skin(skin_name: SkinColor) -> void:
+	skin_color = skin_name
 	var texture = _get_texture_from_name(skin_name)
 
 	_set_mesh_texture(_bottom_mesh, texture)
 	_set_mesh_texture(_chest_mesh, texture)
 	_set_mesh_texture(_face_mesh, texture)
 	_set_mesh_texture(_limbs_head_mesh, texture)
+
+	# Repaint the procedural avatars if they are already built.
+	for visual in [get_node_or_null("SlimeVisual"), get_node_or_null("SpringArmOffset/SpringArm3D/Camera3D/FirstPersonHands")]:
+		if visual and visual.has_method("apply_skin"):
+			visual.apply_skin(skin_name)
 
 
 func _set_mesh_texture(mesh_instance: MeshInstance3D, texture: CompressedTexture2D) -> void:

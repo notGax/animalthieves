@@ -1,6 +1,8 @@
 extends Node3D
 ## Art-directed first-person mitten rig. Spring motion, grip, reach and recoil.
 const Visual = preload("res://scripts/heist/slime_visual.gd")
+const Materials = preload("res://scripts/visuals/character_materials.gd")
+const Palette = preload("res://scripts/visuals/palette.gd")
 var character: CharacterBody3D
 var camera: Camera3D
 var hands: Array[Node3D]=[]
@@ -17,29 +19,40 @@ var clock := 0.0
 var last_fall := 0.0
 var landing := 0.0
 var skin: Color
+var painted: Array = []
+
+func _paint(instance: MeshInstance3D, lighten := 0.0) -> void:
+	painted.append([instance,lighten])
+	instance.material_override=Materials.part(skin.lightened(lighten))
+
+func apply_skin(skin_index: int) -> void:
+	## Repaint every hand part from the shared palette (build + skin change).
+	skin=Palette.color(Palette.skin(skin_index).body)
+	for entry in painted:
+		entry[0].material_override=Materials.part(skin.lightened(entry[1]))
 
 func _ready() -> void:
 	camera=get_parent()
 	character=camera.get_node("../../..")
-	var colors := [Color("83bdd2"),Color("e8c57b"),Color("acd094"),Color("d98f83")]
-	skin=colors[character.skin_color]
+	skin=Palette.color(Palette.skin(character.skin_color).body)
 	for side in [-1,1]:
 		var hand := Node3D.new()
 		hand.position=Vector3(side*.3,-.3,-.55)
 		add_child(hand)
 		hands.append(hand)
-		Visual.sphere(hand,Vector3.ZERO,Vector3(.24,.14,.25),skin)
-		Visual.sphere(hand,Vector3(side*-.105,-.015,-.035),Vector3(.08,.095,.14),skin.lightened(.04))
+		_paint(Visual.sphere(hand,Vector3.ZERO,Vector3(.24,.14,.25),skin))
+		_paint(Visual.sphere(hand,Vector3(side*-.105,-.015,-.035),Vector3(.08,.095,.14),skin.lightened(.04)),.04)
+		_paint(Visual.sphere(hand,Vector3(side*-.12,.02,-.1),Vector3(.06,.09,.13),skin.lightened(.02)),.02)
 		var digits: Array=[]
 		for i in range(4):
 			var finger := Node3D.new()
 			finger.position=Vector3(-.081+i*.054,0,-.09)
 			hand.add_child(finger)
-			Visual.sphere(finger,Vector3(0,0,-.055),Vector3(.055,.08,.15),skin)
+			_paint(Visual.sphere(finger,Vector3(0,0,-.055),Vector3(.055,.08,.15),skin))
 			var tip := Node3D.new()
 			tip.position.z=-.11
 			finger.add_child(tip)
-			Visual.sphere(tip,Vector3(0,0,-.035),Vector3(.052,.072,.095),skin.lightened(.025))
+			_paint(Visual.sphere(tip,Vector3(0,0,-.035),Vector3(.052,.072,.095),skin.lightened(.025)),.025)
 			digits.append([finger,tip])
 		fingers.append(digits)
 		var arm := MeshInstance3D.new()
@@ -49,10 +62,7 @@ func _ready() -> void:
 		cylinder.radial_segments=8
 		cylinder.height=1
 		arm.mesh=cylinder
-		var material := StandardMaterial3D.new()
-		material.albedo_color=skin.darkened(.04)
-		material.roughness=.9
-		arm.material_override=material
+		_paint(arm,-.04)
 		add_child(arm)
 		arms.append(arm)
 	tool_root=Node3D.new()
@@ -145,24 +155,21 @@ func part(pos: Vector3,size: Vector3,color: Color) -> void:
 	box.size=size
 	mesh.mesh=box
 	mesh.position=pos
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color=color
-	mat.roughness=.85
-	mesh.material_override=mat
+	mesh.material_override=Materials.part(color)
 	tool_root.add_child(mesh)
 
 func make_tool(tool: String) -> void:
 	for child in tool_root.get_children(): child.queue_free()
 	match tool:
 		"grapple","water":
-			part(Vector3(0,.06,-.06),Vector3(.16,.13,.33),Color("80b7ae"))
-			part(Vector3(0,-.03,.015),Vector3(.08,.19,.08),Color("e18e68"))
-			part(Vector3(0,.055,-.26),Vector3(.1,.09,.1),Color("eab36c"))
+			part(Vector3(0,.06,-.06),Vector3(.16,.13,.33),Color("3fa8a0"))
+			part(Vector3(0,-.03,.015),Vector3(.08,.19,.08),Color("b4763f"))
+			part(Vector3(0,.055,-.26),Vector3(.1,.09,.1),Color("ffd27a"))
 			if tool=="water":
-				Visual.sphere(tool_root,Vector3(0,.16,-.08),Vector3(.19,.12,.28),Color("eaac77"))
+				Visual.sphere(tool_root,Vector3(0,.16,-.08),Vector3(.19,.12,.28),Color("7acde8"))
 			else:
-				part(Vector3(-.065,.12,-.3),Vector3(.035,.17,.035),Color("d6bc79"))
-				part(Vector3(-.035,.2,-.3),Vector3(.09,.035,.035),Color("d6bc79"))
+				part(Vector3(-.065,.12,-.3),Vector3(.035,.17,.035),Color("9aa3ab"))
+				part(Vector3(-.035,.2,-.3),Vector3(.09,.035,.035),Color("9aa3ab"))
 		"crystal":
 			var crystal := Visual.sphere(tool_root,Vector3(0,.12,-.04),Vector3(.19,.35,.18),Color("b6a3da"))
 			var mesh := crystal.mesh as SphereMesh

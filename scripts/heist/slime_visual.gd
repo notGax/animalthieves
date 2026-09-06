@@ -3,6 +3,10 @@ extends Node3D
 ## The wobble language follows PEAK's tumbling scouts and R.E.P.O.'s flappy
 ## semibots: springy squash and stretch, lean into acceleration, head lag on
 ## turns, frantic eye darts near danger and flailing mittens in the air.
+const Materials = preload("res://scripts/visuals/character_materials.gd")
+const Palette = preload("res://scripts/visuals/palette.gd")
+const Vfx = preload("res://scripts/visuals/vfx.gd")
+const FormProps = preload("res://scripts/heist/form_visuals.gd")
 var blob: Node3D
 var eyes: Array[MeshInstance3D] = []
 var whites: Array[MeshInstance3D] = []
@@ -11,7 +15,7 @@ var mittens: Array[MeshInstance3D] = []
 var gaze := Vector2.ZERO
 var mouth: MeshInstance3D
 var ears: Node3D
-var material: StandardMaterial3D
+var material: ShaderMaterial
 var clock := 0.0
 var character: CharacterBody3D
 var lean := Vector2.ZERO
@@ -24,6 +28,23 @@ var was_on_floor := true
 var last_vertical := 0.0
 var last_velocity := Vector2.ZERO
 var prev_yaw := 0.0
+# Expression drivers, all derived locally from synced player_state.
+var skin: Dictionary = {}
+var cheeks: Array[MeshInstance3D] = []
+var ear_outers: Array[MeshInstance3D] = []
+var ear_inners: Array[MeshInstance3D] = []
+var tail: MeshInstance3D
+var flash := 0.0
+var last_hp := 100.0
+var effort := 0.0
+var excited := 0.0
+var carry_sag := 0.0
+var wobble := 0.0
+var was_held := false
+var was_form := "slime"
+var form_props: Node3D
+var bird_wings: Array = []
+var tongue: Node3D
 
 static func sphere(parent: Node3D, pos: Vector3, size: Vector3, color: Color) -> MeshInstance3D:
 	var mesh := SphereMesh.new()
@@ -33,10 +54,21 @@ static func sphere(parent: Node3D, pos: Vector3, size: Vector3, color: Color) ->
 	instance.mesh = mesh
 	instance.position = pos
 	instance.scale = size
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.roughness = .9
-	instance.material_override = mat
+	instance.material_override = Materials.part(color)
+	parent.add_child(instance)
+	return instance
+
+static func sphere_hq(parent: Node3D, pos: Vector3, size: Vector3, color: Color, wobble := 0.0) -> MeshInstance3D:
+	## Hero-quality body sphere: denser mesh and a per-body slime shader with
+	## its own flash/wobble channels.
+	var mesh := SphereMesh.new()
+	mesh.radial_segments = 24
+	mesh.rings = 14
+	var instance := MeshInstance3D.new()
+	instance.mesh = mesh
+	instance.position = pos
+	instance.scale = size
+	instance.material_override = Materials.unique(color, wobble)
 	parent.add_child(instance)
 	return instance
 
@@ -45,26 +77,56 @@ func _ready() -> void:
 	clock=float(int(str(character.name))%97)*.071
 	blob = Node3D.new()
 	add_child(blob)
-	var colors := [Color("83bdd2"),Color("e8c57b"),Color("acd094"),Color("d98f83")]
-	var body := sphere(blob, Vector3(0,.7,0), Vector3(1.45,1.4,1.25), colors[character.skin_color])
+	var body := sphere_hq(blob, Vector3(0,.7,0), Vector3(1.45,1.4,1.25), Color("5ec8e8"), .015)
 	material = body.material_override
-	material.roughness = .85
-	material.metallic = 0.0
 	for x in [-.24,.24]:
-		whites.append(sphere(blob, Vector3(x,1.02,-.5),Vector3(.42,.5,.2),Color("fffae9")))
-		brows.append(sphere(blob,Vector3(x,1.34,-.48),Vector3(.3,.035,.04),Color("32444a")))
-		eyes.append(sphere(blob,Vector3(x,1.02,-.62),Vector3(.17,.26,.09),Color("152c36")))
-	mouth = sphere(blob,Vector3(0,.72,-.625),Vector3(.27,.09,.06),Color("25424b"))
-	sphere(blob,Vector3(-.52,.72,-.42),Vector3(.21,.08,.04),Color("dd9999"))
-	sphere(blob,Vector3(.52,.72,-.42),Vector3(.21,.08,.04),Color("dd9999"))
+		whites.append(sphere(blob, Vector3(x,1.02,-.5),Vector3(.42,.5,.2),Color("fdf3d0")))
+		brows.append(sphere(blob,Vector3(x,1.34,-.48),Vector3(.3,.035,.04),Color("23323a")))
+		eyes.append(sphere(blob,Vector3(x,1.02,-.62),Vector3(.17,.26,.09),Color("1b2b33")))
+	mouth = sphere(blob,Vector3(0,.72,-.625),Vector3(.27,.09,.06),Color("1b2b33"))
+	for x in [-.52,.52]:
+		cheeks.append(sphere(blob,Vector3(x,.72,-.42),Vector3(.21,.08,.04),Color("ff9db1")))
 	for x in [-.78,.78]:
-		mittens.append(sphere(blob,Vector3(x,.67,-.15),Vector3(.34,.23,.35),colors[character.skin_color]))
+		mittens.append(sphere(blob,Vector3(x,.67,-.15),Vector3(.34,.23,.35),Color("5ec8e8")))
 	ears = Node3D.new()
 	blob.add_child(ears)
 	for x in [-.5,.5]:
-		sphere(ears,Vector3(x,1.5,.05),Vector3(.65,.7,.22),Color("bcaaa0"))
-		sphere(ears,Vector3(x,1.5,-.08),Vector3(.43,.48,.12),Color("e6a6ac"))
-	sphere(ears,Vector3(0,.28,.72),Vector3(.2,.18,1.3),Color("daa4aa"))
+		ear_outers.append(sphere(ears,Vector3(x,1.5,.05),Vector3(.65,.7,.22),Color("2f8fb0")))
+		ear_inners.append(sphere(ears,Vector3(x,1.5,-.08),Vector3(.43,.48,.12),Color("ffb0be")))
+	tail = sphere(ears,Vector3(0,.28,.72),Vector3(.2,.18,1.3),Color("ffb0be"))
+	apply_skin(character.skin_color)
+	var built: Dictionary = FormProps.build(blob, skin)
+	form_props = built.root
+	bird_wings = built.wings
+	tongue = built.tongue
+
+func apply_skin(skin_index: int) -> void:
+	## Repaint the slime from the shared palette: build time and skin changes.
+	skin = Palette.skin(skin_index)
+	if material:
+		material.set_shader_parameter("albedo", Palette.color(skin.body))
+	var body_mat := Materials.part(Palette.color(skin.body))
+	for mitten in mittens:
+		mitten.material_override = body_mat
+	var pupil_mat := Materials.part(Palette.color(skin.pupil))
+	for eye in eyes:
+		eye.material_override = pupil_mat
+	if mouth:
+		mouth.material_override = pupil_mat
+	var brow_mat := Materials.part(Palette.color(skin.brow))
+	for brow in brows:
+		brow.material_override = brow_mat
+	var cheek_mat := Materials.part(Palette.color(skin.cheek))
+	for cheek in cheeks:
+		cheek.material_override = cheek_mat
+	var outer_mat := Materials.part(Palette.color(skin.deep))
+	for ear in ear_outers:
+		ear.material_override = outer_mat
+	var inner_mat := Materials.part(Palette.color(skin.ear))
+	for ear in ear_inners:
+		ear.material_override = inner_mat
+	if tail:
+		tail.material_override = Materials.part(Palette.color(skin.ear).darkened(.08))
 
 func _process(delta: float) -> void:
 	clock += delta
@@ -73,8 +135,26 @@ func _process(delta: float) -> void:
 	var data: Dictionary = world.player_state.get(str(character.name), {}) if world else {}
 	var form: String = data.get("form", "slime")
 	ears.visible = form != "slime"
+	if form_props:
+		for kind in ["rat","boar","bird","lizard"]:
+			form_props.get_node(kind).visible = kind == form
 	var down: bool = float(data.get("hp",100)) <= 0
+	var held_name: String = data.get("held","")
 	var first: bool = character.is_multiplayer_authority() and character._spring_arm_offset.is_first_person
+	# Expression drivers, all spring-lerped from synced state only.
+	var hp_now := float(data.get("hp",100))
+	if hp_now < last_hp - .5 and not down:
+		flash = 1.0
+		material.set_shader_parameter("flash_color", Palette.color(Palette.VFX["hurt"]))
+	last_hp = hp_now
+	if form != was_form:
+		was_form = form
+		excited = 1.0
+		Vfx.transform_burst(self, Vector3(0,1,0))
+	var gesturing: bool = float(data.get("gesture_time",0)) > 0
+	effort=lerpf(effort,1.0 if (gesturing or held_name!="") else 0.0,1-exp(-step*8))
+	carry_sag=lerpf(carry_sag,1.0 if held_name!="" else 0.0,1-exp(-step*7))
+	excited=move_toward(excited,0.0,delta*1.1)
 	visible = not first
 	character.get_node("GodotRobot3D/RobotArmature").visible = false
 	var facing: Vector3=data.get("carry_direction",-character.global_basis.z)
@@ -97,6 +177,8 @@ func _process(delta: float) -> void:
 	if character.is_on_floor() and not was_on_floor:
 		squash_speed-=minf(absf(last_vertical),12)*.11
 		lean_speed.y-=minf(absf(last_vertical),12)*.012
+		if absf(last_vertical)>4:
+			Vfx.dust(self,Vector3(0,.12,0),clampf(absf(last_vertical)*.06,.7,1.6))
 	was_on_floor=character.is_on_floor()
 	last_vertical=character.velocity.y
 	squash_speed+=(-150*squash-11*squash_speed)*step
@@ -107,7 +189,13 @@ func _process(delta: float) -> void:
 	var waddle := sin(clock*6)*.08 if moving>.3 else 0.0
 	var tall := bounce+squash+stretch
 	blob.scale = Vector3(1.0-tall*.55,1.0+tall,1.0-tall*.55)
-	blob.rotation = Vector3(clampf(lean.y*.55,-.35,.35),clampf(turn_lag,-.45,.45),clampf(-lean.x*.55,-.35,.35)+waddle)
+	blob.rotation = Vector3(clampf(lean.y*.55,-.35,.35)+carry_sag*.12,clampf(turn_lag,-.45,.45),clampf(-lean.x*.55,-.35,.35)+waddle)
+	blob.position.y=-carry_sag*.1
+	# Body wobble rides the slime shader; flash decays over the hurt/pickup pop.
+	flash=move_toward(flash,0.0,delta*2.2)
+	material.set_shader_parameter("flash",flash)
+	wobble=lerpf(wobble,(.02 if moving>.3 else .006)+excited*.03,1-exp(-step*5))
+	material.set_shader_parameter("wobble",wobble)
 	if down:
 		blob.scale = Vector3(1.3,.25,1.3)
 	elif form == "rat":
@@ -118,6 +206,14 @@ func _process(delta: float) -> void:
 		ears.scale = Vector3(2.0,.5,1)
 	else:
 		ears.scale = Vector3.ONE
+	# Wing nubs flap harder while moving; the tongue flicks on a steady rhythm.
+	if bird_wings.size() == 2:
+		var flap := sin(clock*17.0)*(.55 if moving>.3 else .22)
+		bird_wings[0].rotation.z = flap
+		bird_wings[1].rotation.z = -flap
+	if tongue:
+		tongue.visible = form == "lizard"
+		tongue.scale = Vector3(1,1,1+sin(clock*9.0)*.55)
 	var target := Vector3.ZERO
 	var best := 10.0
 	if world:
@@ -150,6 +246,8 @@ func _process(delta: float) -> void:
 				hand_target=Vector3(side*.6+cos(clock*14+i*PI)*.2,.75+sin(clock*14+i*PI)*.2,-.45)
 			elif moving>.3:
 				hand_target=Vector3(side*.72,.6,-.15+sin(clock*12+i*PI)*.18)
+			elif i==1:
+				hand_target=Vector3(.55,.78,-.72+sin(clock*9)*.03)
 			else:
 				hand_target.y+=sin(clock*9+i)*.05
 			mittens[i].position=mittens[i].position.lerp(hand_target,minf(1,step*12))
@@ -166,16 +264,43 @@ func _process(delta: float) -> void:
 	wanted.y+=cos(clock*11.3)*.01*panic
 	gaze=gaze.lerp(wanted,1-exp(-step*16))
 	var blink := fmod(clock,3.7)<.12
+	var wink := fmod(clock,5.9)<.13 and not down and panic<.3
+	var squint := effort>.5
 	var bulge := 1+panic*.35
 	var wide := character.velocity.y < -4
+	var tilt := .08+panic*.2
+	if wide:
+		tilt=-.3
+	elif squint:
+		tilt=.34
 	for i in range(2):
 		var eye := eyes[i]
+		var shut := blink or (i==1 and wink)
 		eye.position.x=(-.24 if i==0 else .24)+gaze.x
 		eye.position.y=1.02+gaze.y
-		eye.scale=Vector3(.17*bulge,.02 if blink or down else (.3 if wide else .24),.09)
-		whites[i].scale=Vector3(.42*bulge,.06 if blink else .5*(1+panic*.1),.2)
-		brows[i].position.y=1.34+panic*.05+(.03 if wide else 0)
-		brows[i].rotation.z=(-1 if i==0 else 1)*(.3 if wide else (-.08-panic*.2))
-	mouth.scale.y=.3 if character.velocity.y<-3 else (.2 if float(data.get("gesture_time",0))>0 else .08+panic*.14)
+		eye.scale=Vector3(.17*bulge,.02 if shut or down else (.3 if wide else (.15 if squint else .24)),.09)
+		whites[i].scale=Vector3(.42*bulge,.06 if shut else (.3 if squint else .5*(1+panic*.1)),.2)
+		brows[i].position.y=1.34+panic*.05+(.03 if wide else 0)-(.05 if squint else 0)
+		brows[i].rotation.z=tilt if i==0 else -tilt
+	# Mouth shape table: idle, panic, waa-falling, oof (hurt), effort grimace, grin.
+	var mouth_size := Vector3(.27,.09,.06)
 	if down:
-		mouth.scale.y=.035
+		mouth_size=Vector3(.3,.035,.06)
+	elif character.velocity.y<-3:
+		mouth_size=Vector3(.22,.3,.06)
+	elif flash>.3:
+		mouth_size=Vector3(.32,.2,.06)
+	elif effort>.5:
+		mouth_size=Vector3(.24,.18,.06)
+	elif panic>.4:
+		mouth_size=Vector3(.3,.14,.06)
+	elif excited>.2:
+		mouth_size=Vector3(.34,.12,.06)
+	mouth.scale=mouth.scale.lerp(mouth_size,1-exp(-step*12))
+	# Pickup sparkle: held-item transitions are synced, the glitter is local.
+	if held_name!="" and not was_held:
+		excited=1.0
+		flash=maxf(flash,.5)
+		material.set_shader_parameter("flash_color",Palette.color(Palette.VFX["pickup"]))
+		Vfx.sparkle(self,Vector3(0,1.3,0))
+	was_held=held_name!=""

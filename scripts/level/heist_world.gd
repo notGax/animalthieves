@@ -1,6 +1,10 @@
 extends Node3D
 ## Host-authoritative co-op campaign: encounters, economy, tools and world state.
 const Guard = preload("res://scripts/heist/security_guard.gd")
+const Materials = preload("res://scripts/visuals/character_materials.gd")
+const Visual = preload("res://scripts/heist/slime_visual.gd")
+const Palette = preload("res://scripts/visuals/palette.gd")
+const Widgets = preload("res://scripts/visuals/hud_widgets.gd")
 const GOODS := ["rotten_cheese","moonshine","canned_food","stolen_goods"]
 const SPECIES := ["rat","boar","bird","lizard"]
 const PRICES := {"grapple":80,"water":90,"crystal":65,"jetpack":180,"cart":100,"truck":260,"racecar":200}
@@ -44,6 +48,22 @@ var bait_visuals: Array[Node3D] = []
 var cameras: Array = []
 var machine_visuals: Array[Node3D] = []
 var tool_icon: TextureRect
+var hud_root: Control
+var task_label: Label
+var alarm_frame: PanelContainer
+var alarm_bar: ProgressBar
+var alarm_fill: StyleBoxFlat
+var boss_frame: PanelContainer
+var boss_bar: ProgressBar
+var boss_label: Label
+var cash_label: Label
+var hp_bar: ProgressBar
+var hp_fill: StyleBoxFlat
+var fuel_bar: ProgressBar
+var fuel_fill: StyleBoxFlat
+var form_label: Label
+var tool_label: Label
+var _text_cache: Dictionary = {}
 const ART_INDEX := {"grapple":4,"water":5,"crystal":6,"jetpack":7,"cart":8,"truck":9,"racecar":10}
 
 func _ready() -> void:
@@ -397,7 +417,8 @@ func _process(delta: float) -> void:
 		task="East road open. Raid the next store or replay an earlier heist."
 	if int(campaign.recipes[3])>0:
 		task="The mecha dragon is down. The Crooked Mile belongs to your crew."
-	hud.text="%s   |   CREW %d/4\nHP %d   $%d shared   Income $%d   Alarm %d%%\n%s\n%s  |  %s  |  Form cooldown %ds"%[location,Network.players.size(),int(data.get("hp",100)),int(campaign.cash),int(campaign.bank),int(alarm),task,TOOL_NAMES.get(data.get("tool","grapple"),""),str(data.get("form","slime")).to_upper(),ceili(float(data.get("form_cooldown",0)))]
+	hud.text="%s   |   CREW %d/4"%[location,Network.players.size()]
+	_update_widgets(data,task)
 	nearest=null
 	var distance := 3.3
 	for marker in $Interactions.get_children():
@@ -453,6 +474,49 @@ func _process(delta: float) -> void:
 		prompt.text="DOWNED - teammates can revive you. Rescue in %ds."%maxi(0,30-int(data.get("down_time",0)))
 	if shop_open:
 		update_shop_header()
+
+## Diff-guarded text assign: labels only rebuild when their content changes.
+func _set_text(label: Label,key: String,value: String) -> void:
+	if _text_cache.get(key,"")!=value:
+		_text_cache[key]=value
+		label.text=value
+
+## Local HUD widget refresh - every input comes from already-synced state.
+func _update_widgets(data: Dictionary,task: String) -> void:
+	var hp := clampf(float(data.get("hp",100.0))/100.0,0.0,1.0)
+	hp_bar.value=hp
+	hp_fill.bg_color=Palette.color(Palette.UI.good).lerp(Palette.color(Palette.UI.bad),1.0-hp)
+	var fuel := clampf(float(data.get("fuel",100.0))/100.0,0.0,1.0)
+	fuel_bar.value=fuel
+	fuel_fill.bg_color=Palette.color(Palette.UI.info).lerp(Palette.color(Palette.UI.bad),.6 if fuel<.35 else 0.0)
+	var alarm_ratio := clampf(alarm/100.0,0.0,1.0)
+	alarm_bar.value=alarm_ratio
+	alarm_fill.bg_color=Palette.color(Palette.UI.warn).lerp(Palette.color(Palette.UI.bad),alarm_ratio)
+	alarm_frame.modulate=Color(1,1,1,.78+.22*sin(Time.get_ticks_msec()*.012)) if alarm>65 else Color.WHITE
+	_set_text(task_label,"task",task)
+	_set_text(cash_label,"cash","$%d   BANK $%d"%[int(campaign.cash),int(campaign.bank)])
+	var form_text := str(data.get("form","slime")).to_upper()
+	var cooldown := ceili(float(data.get("form_cooldown",0)))
+	if cooldown>0:
+		form_text+="  ·  %ds"%cooldown
+	_set_text(form_label,"form",form_text)
+	_set_text(tool_label,"tool",TOOL_NAMES.get(data.get("tool","grapple"),""))
+	var boss: Node3D=active_boss()
+	boss_frame.visible=boss!=null
+	if boss:
+		boss_bar.value=clampf(boss.hp/boss.max_hp,0.0,1.0)
+		_set_text(boss_label,"boss_name",["THE BIG CHEESE","FOREMAN TUSK","MADAM MAGPIE","MECHA DRAGON"][boss.tier])
+
+## The nearest aggro boss within display range, scanned from cached enemies.
+func active_boss() -> Node3D:
+	var player := local_player()
+	if not player:
+		return null
+	for enemy in enemies:
+		if enemy.boss and enemy.hp>0.0 and enemy.state!="PATROL" \
+				and enemy.global_position.distance_to(player.global_position)<32.0:
+			return enemy
+	return null
 
 func aim_direction() -> Vector3:
 	var player := local_player()
@@ -659,6 +723,7 @@ func interact(player: CharacterBody3D,marker_name: String) -> void:
 		campaign.cash+=int(campaign.bank)
 		campaign.bank-=int(campaign.bank)
 		play_sound.rpc("cash")
+		fx.rpc(marker.global_position+Vector3.UP,Color("ffd27a"),1.0)
 		save_campaign()
 	elif marker_name.begins_with("Valve"):
 		var index := marker_name.trim_prefix("Valve").to_int()
@@ -694,6 +759,7 @@ func sell_loot(player: CharacterBody3D) -> void:
 	player._sync_inventory_to_owner()
 	notice.rpc("Loot delivered: $%d added to crew funds."%earned)
 	play_sound.rpc("cash")
+	fx.rpc(player.global_position+Vector3.UP*1.5,Color("ffd27a"),1.4)
 	save_campaign()
 
 func reset_heists() -> void:
@@ -844,9 +910,7 @@ func build_vehicles() -> void:
 		var box := BoxMesh.new()
 		box.size=shape.size
 		mesh.mesh=box
-		var material := StandardMaterial3D.new()
-		material.albedo_color=[Color("829e89"),Color("cbab63"),Color("ad5652")][i]
-		material.metallic=.35
+		var material := Materials.part([Color("9fc06a"),Color("e8b23a"),Color("d94f4f")][i])
 		mesh.material_override=material
 		body.add_child(mesh)
 		for x in [-shape.size.x*.5,shape.size.x*.5]:
@@ -859,8 +923,7 @@ func build_vehicles() -> void:
 				wheel.mesh=cylinder
 				wheel.rotation.z=PI*.5
 				wheel.position=Vector3(x,-.3,z)
-				var rubber := StandardMaterial3D.new()
-				rubber.albedo_color=Color("182929")
+				var rubber := Materials.part(Color("1d1526"))
 				wheel.material_override=rubber
 				body.add_child(wheel)
 		# Cargo walls make carts/trucks carry actual rigid merchandise.
@@ -968,44 +1031,129 @@ func build_ui() -> void:
 	var canvas := CanvasLayer.new()
 	canvas.layer=4
 	add_child(canvas)
-	hud=Label.new()
-	hud.position=Vector2(24,18)
-	hud.add_theme_font_size_override("font_size",18)
-	hud.add_theme_color_override("font_color",Color("e3eac7"))
-	hud.add_theme_color_override("font_shadow_color",Color("152728"))
-	hud.add_theme_constant_override("shadow_offset_x",2)
-	hud.add_theme_constant_override("shadow_offset_y",2)
-	canvas.add_child(hud)
+	hud_root=Control.new()
+	hud_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hud_root.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	canvas.add_child(hud_root)
+	# Tilted plum sign, top left: location line and the crooked task line.
+	var sign := Widgets.frame("panel","panel_edge",12,-.03)
+	sign.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	sign.offset_left=18
+	sign.offset_top=14
+	var sign_rows := Widgets.rows(2)
+	hud=Widgets.label(20,"text")
+	sign_rows.add_child(hud)
+	task_label=Widgets.label(14,"warn")
+	sign_rows.add_child(task_label)
+	sign.add_child(sign_rows)
+	hud_root.add_child(sign)
+	# Alarm meter, top center - pulses when the crew draws heat.
+	alarm_frame=Widgets.frame("panel","panel_edge",10)
+	alarm_frame.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	alarm_frame.offset_left=-130
+	alarm_frame.offset_right=130
+	alarm_frame.offset_top=12
+	alarm_frame.offset_bottom=54
+	var alarm_rows := Widgets.rows(2)
+	var alarm_title := Widgets.label(12,"text_dim")
+	alarm_title.text="ALARM"
+	alarm_title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	alarm_rows.add_child(alarm_title)
+	alarm_bar=Widgets.bar(228,12,"warn")
+	alarm_fill=alarm_bar.get_theme_stylebox("fill") as StyleBoxFlat
+	alarm_rows.add_child(alarm_bar)
+	alarm_frame.add_child(alarm_rows)
+	hud_root.add_child(alarm_frame)
+	# Boss bar under the alarm meter; only visible while a boss fights.
+	boss_frame=Widgets.frame("panel","boss",12)
+	boss_frame.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	boss_frame.offset_left=-170
+	boss_frame.offset_right=170
+	boss_frame.offset_top=60
+	boss_frame.offset_bottom=128
+	var boss_rows := Widgets.rows(2)
+	boss_label=Widgets.label(15,"boss")
+	boss_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	boss_rows.add_child(boss_label)
+	boss_bar=Widgets.bar(300,14,"bad")
+	boss_rows.add_child(boss_bar)
+	boss_frame.add_child(boss_rows)
+	boss_frame.hide()
+	hud_root.add_child(boss_frame)
+	# Cash badge, top right, with the shared wallet and bank.
+	var cash_frame := Widgets.frame("panel","panel_edge",12,.025)
+	cash_frame.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	cash_frame.offset_left=-192
+	cash_frame.offset_right=-16
+	cash_frame.offset_top=14
+	cash_frame.offset_bottom=62
+	cash_label=Widgets.label(17,"gold")
+	cash_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	cash_frame.add_child(cash_label)
+	hud_root.add_child(cash_frame)
+	# Tool icon in its own small frame under the cash badge.
+	var tool_frame := Widgets.frame("panel","panel_edge",12,-.02)
+	tool_frame.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	tool_frame.offset_left=-102
+	tool_frame.offset_right=-24
+	tool_frame.offset_top=68
+	tool_frame.offset_bottom=146
 	tool_icon=TextureRect.new()
-	tool_icon.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	tool_icon.offset_left=-94
-	tool_icon.offset_right=-22
-	tool_icon.offset_top=20
-	tool_icon.offset_bottom=92
 	tool_icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	tool_icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	tool_icon.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	canvas.add_child(tool_icon)
-	prompt=Label.new()
-	prompt.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-	prompt.offset_left=-600
-	prompt.offset_right=600
-	prompt.offset_top=-64
-	prompt.offset_bottom=-18
+	tool_frame.add_child(tool_icon)
+	hud_root.add_child(tool_frame)
+	# Vitals, bottom left: hp, fuel, form and tool rows.
+	var vitals := Widgets.frame("panel","panel_edge",12)
+	vitals.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	vitals.offset_left=18
+	vitals.offset_top=-132
+	vitals.offset_right=252
+	vitals.offset_bottom=-18
+	var vitals_rows := Widgets.rows(3)
+	var hp_title := Widgets.label(12,"text_dim")
+	hp_title.text="HP"
+	vitals_rows.add_child(hp_title)
+	hp_bar=Widgets.bar(200,13,"good")
+	hp_fill=hp_bar.get_theme_stylebox("fill") as StyleBoxFlat
+	vitals_rows.add_child(hp_bar)
+	var fuel_title := Widgets.label(12,"text_dim")
+	fuel_title.text="FUEL"
+	vitals_rows.add_child(fuel_title)
+	fuel_bar=Widgets.bar(200,13,"info")
+	fuel_fill=fuel_bar.get_theme_stylebox("fill") as StyleBoxFlat
+	vitals_rows.add_child(fuel_bar)
+	form_label=Widgets.label(14,"info")
+	vitals_rows.add_child(form_label)
+	tool_label=Widgets.label(13,"text_dim")
+	vitals_rows.add_child(tool_label)
+	vitals.add_child(vitals_rows)
+	hud_root.add_child(vitals)
+	# Prompt pill, bottom center; toast pill, top area below the alarm.
+	var prompt_frame := Widgets.frame("panel","panel_edge",16,.012)
+	prompt_frame.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	prompt_frame.offset_left=-620
+	prompt_frame.offset_right=620
+	prompt_frame.offset_top=-78
+	prompt_frame.offset_bottom=-16
+	prompt=Widgets.label(17,"text")
 	prompt.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	prompt.add_theme_font_size_override("font_size",18)
-	canvas.add_child(prompt)
-	toast=Label.new()
-	toast.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-	toast.offset_left=-550
-	toast.offset_right=550
-	toast.offset_top=150
-	toast.offset_bottom=220
+	prompt_frame.add_child(prompt)
+	hud_root.add_child(prompt_frame)
+	var toast_frame := Widgets.frame("panel","panel_edge",16,-.012)
+	toast_frame.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	toast_frame.offset_left=-560
+	toast_frame.offset_right=560
+	toast_frame.offset_top=134
+	toast_frame.offset_bottom=216
+	toast=Widgets.label(21,"warn")
 	toast.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	toast.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	toast.add_theme_font_size_override("font_size",23)
-	toast.add_theme_color_override("font_color",Color("e4c285"))
-	canvas.add_child(toast)
+	toast_frame.add_child(toast)
+	hud_root.add_child(toast_frame)
+	# The capture flow hides hud to screenshot clean scenes; hide the rest too.
+	hud.visibility_changed.connect(func(): hud_root.visible=hud.visible)
 	shop=PanelContainer.new()
 	shop.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	shop.offset_left=-420
@@ -1167,35 +1315,128 @@ func notice(message: String) -> void:
 	toast.text=message
 	toast_clock=5.0
 
+var fx_live: Array[Node]=[]
+
 @rpc("authority","call_local","unreliable")
 func fx(point: Vector3,color: Color,size: float) -> void:
 	if DisplayServer.get_name()=="headless": return
-	var sphere := preload("res://scripts/heist/slime_visual.gd").sphere(self,point,Vector3.ONE*size,color)
-	var material: StandardMaterial3D=sphere.material_override
-	material.emission_enabled=true
-	material.emission=color
-	material.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
+	# Cap live bursts so spammy RPCs can never flood the scene graph.
+	while fx_live.size()>=40:
+		var stale: Node=fx_live.pop_front()
+		if is_instance_valid(stale):
+			stale.queue_free()
+	# Elastic pop: glowing core, expanding flat ring, five debris sparks.
+	var root := Node3D.new()
+	root.position=point
+	add_child(root)
+	fx_live.append(root)
+	var core := Visual.sphere(root,Vector3.ZERO,Vector3.ONE*size,color)
+	var core_mat: StandardMaterial3D=(core.material_override as StandardMaterial3D).duplicate()
+	core.material_override=core_mat
+	core_mat.emission_enabled=true
+	core_mat.emission=color
+	core_mat.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
+	var ring := MeshInstance3D.new()
+	var ring_mesh := TorusMesh.new()
+	ring_mesh.inner_radius=size*.44
+	ring_mesh.outer_radius=size*.55
+	ring.mesh=ring_mesh
+	ring.rotation.x=PI*.5
+	ring.scale=Vector3.ONE*.15
+	var ring_mat := StandardMaterial3D.new()
+	ring_mat.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED
+	ring_mat.albedo_color=Color(color.r,color.g,color.b,.9)
+	ring_mat.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
+	ring.material_override=ring_mat
+	root.add_child(ring)
 	var tween := create_tween()
 	tween.set_parallel(true)
-	tween.tween_property(sphere,"scale",Vector3.ONE*size*2,.4)
-	tween.tween_property(material,"albedo_color:a",0.0,.4)
-	tween.chain().tween_callback(sphere.queue_free)
+	tween.tween_property(core,"scale",Vector3.ONE*size*1.9,.34).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(core_mat,"albedo_color:a",0.0,.3)
+	tween.tween_property(ring,"scale",Vector3.ONE*size*2.3,.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(ring_mat,"albedo_color:a",0.0,.4)
+	for i in range(5):
+		var spark := Visual.sphere(root,Vector3.ZERO,Vector3.ONE*size*.16,color)
+		var spark_mat: StandardMaterial3D=(spark.material_override as StandardMaterial3D).duplicate()
+		spark.material_override=spark_mat
+		spark_mat.emission_enabled=true
+		spark_mat.emission=color
+		spark_mat.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
+		var angle := TAU*i/5.0
+		var drift := Vector3(cos(angle),.7,sin(angle)).normalized()*(size*1.6)
+		tween.tween_property(spark,"position",drift,.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tween.tween_property(spark,"scale",Vector3.ONE*size*.05,.4)
+		tween.tween_property(spark_mat,"albedo_color:a",0.0,.4)
+	tween.chain().tween_callback(func():
+		fx_live.erase(root)
+		root.queue_free())
 
 @rpc("authority","call_local","unreliable")
 func beam(from: Vector3,to: Vector3,color: Color) -> void:
 	if DisplayServer.get_name()=="headless": return
-	var mesh := ImmediateMesh.new()
-	var material := StandardMaterial3D.new()
-	material.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.albedo_color=color
-	mesh.surface_begin(Mesh.PRIMITIVE_LINES,material)
-	mesh.surface_add_vertex(from)
-	mesh.surface_add_vertex(to)
-	mesh.surface_end()
-	var line := MeshInstance3D.new()
-	line.mesh=mesh
-	add_child(line)
-	get_tree().create_timer(.18).timeout.connect(line.queue_free)
+	var offset := to-from
+	if offset.length()<.01: return
+	while fx_live.size()>=40:
+		var stale: Node=fx_live.pop_front()
+		if is_instance_valid(stale):
+			stale.queue_free()
+	# Oriented additive shaft with a white-hot core and an impact tip.
+	var root := Node3D.new()
+	root.position=from
+	add_child(root)
+	fx_live.append(root)
+	var dir := offset.normalized()
+	var shaft := CylinderMesh.new()
+	shaft.top_radius=.075
+	shaft.bottom_radius=.075
+	shaft.height=offset.length()
+	shaft.radial_segments=6
+	shaft.rings=0
+	var middle_mesh := CylinderMesh.new()
+	middle_mesh.top_radius=.028
+	middle_mesh.bottom_radius=.028
+	middle_mesh.height=offset.length()
+	middle_mesh.radial_segments=6
+	middle_mesh.rings=0
+	var body := MeshInstance3D.new()
+	body.mesh=shaft
+	body.position=offset*.5
+	body.quaternion=Quaternion(Vector3.UP,dir)
+	var middle := MeshInstance3D.new()
+	middle.mesh=middle_mesh
+	middle.position=body.position
+	middle.quaternion=body.quaternion
+	var glow_mat := StandardMaterial3D.new()
+	glow_mat.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED
+	glow_mat.albedo_color=Color(color.r,color.g,color.b,.85)
+	glow_mat.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
+	glow_mat.blend_mode=BaseMaterial3D.BLEND_MODE_ADD
+	body.material_override=glow_mat
+	var core_mat := StandardMaterial3D.new()
+	core_mat.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED
+	core_mat.albedo_color=Color(1,1,.85,.9)
+	core_mat.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
+	core_mat.blend_mode=BaseMaterial3D.BLEND_MODE_ADD
+	middle.material_override=core_mat
+	root.add_child(body)
+	root.add_child(middle)
+	var tip := Visual.sphere(root,offset,Vector3.ONE*.3,color)
+	var tip_mat: StandardMaterial3D=(tip.material_override as StandardMaterial3D).duplicate()
+	tip.material_override=tip_mat
+	tip_mat.emission_enabled=true
+	tip_mat.emission=color
+	tip_mat.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(glow_mat,"albedo_color:a",0.0,.22)
+	tween.tween_property(core_mat,"albedo_color:a",0.0,.16)
+	tween.tween_property(body,"scale",Vector3(1.8,1,1.8),.22)
+	tween.tween_property(middle,"scale",Vector3(1.2,1,1.2),.22)
+	tween.tween_property(tip,"scale",Vector3.ONE*.9,.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(tip_mat,"albedo_color:a",0.0,.22)
+	tween.chain().tween_callback(func():
+		fx_live.erase(root)
+		root.queue_free())
 
 @rpc("authority","call_local","unreliable")
 func play_sound(kind: String) -> void:
@@ -1268,13 +1509,33 @@ func render_hazards() -> void:
 		while visuals.size()<collection.size():
 			var visual := Node3D.new()
 			add_child(visual)
-			var color := Color("ed8439") if collection==fires else Color("c9df7c")
+			var color := Color("ff7d31") if collection==fires else Color("7fae3d")
 			var blob := preload("res://scripts/heist/slime_visual.gd").sphere(visual,Vector3(0,.25,0),Vector3(3,.25,3) if collection==fires else Vector3(.6,.4,.5),color)
-			blob.material_override.emission_enabled=true
-			blob.material_override.emission=color*.5
+			blob.material_override=Materials.lit(color,.8 if collection==fires else .55)
 			if collection==fires:
 				for i in range(3):
-					preload("res://scripts/heist/slime_visual.gd").sphere(visual,Vector3(sin(i*2.1),.5,cos(i*2.1)),Vector3(.5,1,.5),Color("efc15d"))
+					var flame := Visual.sphere(visual,Vector3(sin(i*2.1),.5,cos(i*2.1)),Vector3(.5,1,.5),Color("ffd27a"))
+					flame.material_override=Materials.lit(Color("ffd27a"),1.4)
+				# Only the first four fires get a real light: shadowless and
+				# capped, everything else glows by emission alone.
+				if visuals.size()<4:
+					var glow := OmniLight3D.new()
+					glow.light_color=Color("ff7d31")
+					glow.light_energy=1.3
+					glow.omni_range=7
+					glow.omni_attenuation=1.4
+					glow.shadow_enabled=false
+					glow.position.y=.8
+					visual.add_child(glow)
+			else:
+				# Mold-green halo marking the bribable bait pile.
+				var halo := Visual.sphere(visual,Vector3(0,.4,0),Vector3(1.15,.8,1.0),Color("a2d95a"))
+				var halo_mat: StandardMaterial3D=(halo.material_override as StandardMaterial3D).duplicate()
+				halo.material_override=halo_mat
+				halo_mat.albedo_color=Color("a2d95a38")
+				halo_mat.emission_enabled=true
+				halo_mat.emission=Color("7fae3d")
+				halo_mat.emission_energy_multiplier=.7
 			visuals.append(visual)
 		for i in collection.size():
 			visuals[i].position=collection[i].position
@@ -1290,17 +1551,16 @@ func build_security_cameras() -> void:
 		var box := BoxMesh.new()
 		box.size=Vector3(.55,.35,.85)
 		camera.mesh=box
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color=Color("ddd3ae")
+		var mat := Materials.part(Color("2b2138"))
 		camera.material_override=mat
 		holder.add_child(camera)
 		var lamp := SpotLight3D.new()
-		lamp.light_color=Color("d4c69a")
+		lamp.light_color=Color("ffb347")
 		lamp.light_energy=.8
 		lamp.spot_range=12
 		lamp.spot_angle=22
 		holder.add_child(lamp)
-		preload("res://scripts/heist/slime_visual.gd").sphere(holder,Vector3(.19,0,-.44),Vector3(.07,.07,.04),Color("d55245"))
+		preload("res://scripts/heist/slime_visual.gd").sphere(holder,Vector3(.19,0,-.44),Vector3(.07,.07,.04),Color("ff4d4d"))
 		var cone := MeshInstance3D.new()
 		var mesh := CylinderMesh.new()
 		mesh.top_radius=0

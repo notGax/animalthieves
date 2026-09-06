@@ -1,0 +1,112 @@
+extends RefCounted
+## Per-form costume props built on the SAME round slime body - whiskers and
+## buck teeth for the rat, snout disc and tusks for the boar, beak and flapping
+## wing nubs for the bird, dorsal spikes and a forked tongue for the lizard.
+## Purely cosmetic: the caller toggles visibility locally from the synced
+## form field. Returns {"root", "wings", "tongue"} for the animated bits.
+const Materials = preload("res://scripts/visuals/character_materials.gd")
+
+
+static func sphere(parent: Node3D, pos: Vector3, size: Vector3, color: Color) -> MeshInstance3D:
+	var mesh := SphereMesh.new()
+	mesh.radial_segments = 12
+	mesh.rings = 7
+	var instance := MeshInstance3D.new()
+	instance.mesh = mesh
+	instance.position = pos
+	instance.scale = size
+	instance.material_override = Materials.part(color)
+	parent.add_child(instance)
+	return instance
+
+
+static func build(blob: Node3D, skin: Dictionary) -> Dictionary:
+	var root := Node3D.new()
+	root.name = "FormProps"
+	blob.add_child(root)
+	var rat := Node3D.new()
+	rat.name = "rat"
+	root.add_child(rat)
+	_rat(rat)
+	var boar := Node3D.new()
+	boar.name = "boar"
+	root.add_child(boar)
+	_boar(boar)
+	var bird := Node3D.new()
+	bird.name = "bird"
+	root.add_child(bird)
+	var wings: Array = _bird(bird, skin)
+	var lizard := Node3D.new()
+	lizard.name = "lizard"
+	root.add_child(lizard)
+	var tongue := _lizard(lizard)
+	return {"root": root, "wings": wings, "tongue": tongue}
+
+
+static func _rat(parent: Node3D) -> void:
+	var cream := Color("fdf3d0")
+	var pink := Color("ff8fa8")
+	# Wet nose bump on the snout tip plus two buck teeth under the mouth.
+	sphere(parent, Vector3(0, .78, -.72), Vector3(.16, .13, .12), pink)
+	for x in [-.06, .06]:
+		sphere(parent, Vector3(x, .58, -.63), Vector3(.07, .17, .05), cream)
+	# Three whiskers sweeping out of each cheek.
+	for side in [-1.0, 1.0]:
+		for i in range(3):
+			var whisker := sphere(parent, Vector3.ZERO, Vector3(.4, .018, .018), cream)
+			whisker.position = Vector3(side * .48, .72 - i * .06, -.5)
+			whisker.rotation = Vector3(0, side * .35, side * (-.3 + i * .3))
+
+
+static func _boar(parent: Node3D) -> void:
+	var cream := Color("fdf3d0")
+	var dark := Color("3a2f1c")
+	# Snout disc, heavy brow ridge, curling tusks and a bristle crest.
+	sphere(parent, Vector3(0, .72, -.68), Vector3(.42, .3, .14), Color("e09a68"))
+	sphere(parent, Vector3(0, 1.44, -.5), Vector3(.98, .17, .12), dark)
+	for x in [-.44, .44]:
+		var tusk := sphere(parent, Vector3(x, .5, -.64), Vector3(.075, .075, .32), cream)
+		tusk.rotation.x = -.25
+	for i in range(4):
+		sphere(parent, Vector3(0, 1.38 - i * .15, .12 + i * .3), Vector3(.09, .3, .09), dark)
+
+
+static func _bird(parent: Node3D, skin: Dictionary) -> Array:
+	var amber := Color("ffb347")
+	# Conical beak where the mouth sits, plus a three-feather crest.
+	var beak := CylinderMesh.new()
+	beak.top_radius = .02
+	beak.bottom_radius = .18
+	beak.height = .5
+	beak.radial_segments = 8
+	var beak_mesh := MeshInstance3D.new()
+	beak_mesh.mesh = beak
+	beak_mesh.rotation.x = PI * .5
+	beak_mesh.position = Vector3(0, .78, -.74)
+	beak_mesh.material_override = Materials.part(amber)
+	parent.add_child(beak_mesh)
+	for i in range(3):
+		sphere(parent, Vector3(-.14 + i * .14, 1.52, .12), Vector3(.1, .26, .1), amber)
+	# Wing nubs that flap; colored from the wearer's skin.
+	var wings: Array = []
+	var wing_color: Color = Color("d8b04a")
+	if skin.has("deep"):
+		wing_color = Color(skin.deep)
+	for side in [-1.0, 1.0]:
+		var wing := sphere(parent, Vector3(side * 1.28, .85, -.08), Vector3(.52, .28, .64), wing_color)
+		wings.append(wing)
+	return wings
+
+
+static func _lizard(parent: Node3D) -> Node3D:
+	var green := Color("4c7a3f")
+	# Dorsal spikes down the back and a flicking forked tongue.
+	for i in range(4):
+		sphere(parent, Vector3(0, 1.34 - i * .14, .14 + i * .3), Vector3(.08, .26, .08), green)
+	var tongue := Node3D.new()
+	tongue.position = Vector3(0, .64, -.6)
+	parent.add_child(tongue)
+	for x in [-.04, .04]:
+		var fork := sphere(tongue, Vector3(x, -.02, -.16), Vector3(.04, .04, .3), Color("ff6b8f"))
+		fork.rotation.x = .25
+	return tongue
