@@ -24,3 +24,4 @@ validation-*.log
 # Markdown notes stay local; only the README ships
 *.md
 !README.md
+!assets/**/ATTRIBUTIONS.md
