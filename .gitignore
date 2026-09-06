@@ -1,0 +1,22 @@
+# Godot 4+ import cache
+.godot/
+
+# Godot-specific
+.export/
+export.cfg
+*.translation
+
+# Mono (unused, kept for safety)
+.mono/
+data_*/
+mono_crash.*.json
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Personal local settings
+.claude/settings.local.json
+
+# Validation run artifacts
+validation-*.log

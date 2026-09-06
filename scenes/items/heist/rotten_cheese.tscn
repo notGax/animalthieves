@@ -1,0 +1,83 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/items/item_rigid_body_3d.gd" id="item"]
+[ext_resource type="Shader" path="res://assets/environment/heist/surfaces.gdshader" id="surface"]
+[ext_resource type="Texture2D" path="res://assets/environment/heist/painted_surfaces.png" id="atlas"]
+
+[sub_resource type="BoxMesh" id="r1"]
+size = Vector3(0.65, 0.4, 0.5)
+
+[sub_resource type="StandardMaterial3D" id="r2"]
+albedo_color = Color(0.7725, 0.8078, 0.4118, 1)
+roughness = 0.82
+
+[sub_resource type="CylinderMesh" id="r3"]
+top_radius = 0.07
+bottom_radius = 0.07
+height = 0.01
+radial_segments = 12
+
+[sub_resource type="StandardMaterial3D" id="r4"]
+albedo_color = Color(0.4902, 0.5765, 0.2824, 1)
+roughness = 0.82
+
+[sub_resource type="CylinderMesh" id="r5"]
+top_radius = 0.07
+bottom_radius = 0.07
+height = 0.01
+radial_segments = 12
+
+[sub_resource type="CylinderMesh" id="r6"]
+top_radius = 0.07
+bottom_radius = 0.07
+height = 0.01
+radial_segments = 12
+
+[sub_resource type="BoxShape3D" id="r7"]
+size = Vector3(0.65, 0.8, 0.5)
+
+[sub_resource type="SceneReplicationConfig" id="r8"]
+properties/0/path = NodePath(".:position")
+properties/0/spawn = true
+properties/0/replication_mode = 2
+properties/1/path = NodePath(".:rotation")
+properties/1/spawn = true
+properties/1/replication_mode = 2
+properties/2/path = NodePath(".:carried_by")
+properties/2/spawn = true
+properties/2/replication_mode = 2
+
+[node name="RottenCheese" type="RigidBody3D"]
+collision_layer = 4
+collision_mask = 31
+linear_damp = 1.0
+angular_damp = 1.0
+script = ExtResource("item")
+item_id = "rotten_cheese"
+
+[node name="Product" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.2, 0)
+mesh = SubResource("r1")
+material_override = SubResource("r2")
+
+[node name="Mould0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.2, 0.408, 0)
+mesh = SubResource("r3")
+material_override = SubResource("r4")
+
+[node name="Mould1" type="MeshInstance3D" parent="."]
+position = Vector3(0.1, 0.408, 0.13)
+mesh = SubResource("r5")
+material_override = SubResource("r4")
+
+[node name="Mould2" type="MeshInstance3D" parent="."]
+position = Vector3(0.15, 0.408, -0.15)
+mesh = SubResource("r6")
+material_override = SubResource("r4")
+
+[node name="Collision" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.4, 0)
+shape = SubResource("r7")
+
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
+replication_config = SubResource("r8")
