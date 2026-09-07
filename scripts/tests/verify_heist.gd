@@ -375,6 +375,7 @@ func run() -> void:
 	world._ram_impacts("truck",truck_record,world.vehicles.truck.node,truck_profile)
 	check(absf(guard.hp-(guard_hp-ram_damage*2.0))<.01,"a ram can connect again once the cooldown elapses")
 	# Cheap cargo load estimation counts basket merchandise and feeds penalties.
+	# The estimate refreshes at 8 Hz, so wait past one refresh period.
 	await place_vehicle(world,"cart",155.0)
 	var container: Node3D=level.get_node("Environment/ItemContainer")
 	var crate_homes: Array[Vector3]=[]
@@ -383,8 +384,7 @@ func run() -> void:
 		crate_homes.append(crate.global_position)
 		crate.global_position=world.vehicles.cart.node.global_position+Vector3(0,.8,0)
 		crate.linear_velocity=Vector3.ZERO
-	await physics_frame
-	await physics_frame
+	await create_timer(.2).timeout
 	check(float(world.vehicles.cart["load"])>0.2,"cargo load estimation counts merchandise in the basket (%.2f)"%float(world.vehicles.cart["load"]))
 	for i in range(5):
 		container.get_child(i).global_position=crate_homes[i]

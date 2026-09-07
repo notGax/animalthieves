@@ -403,6 +403,7 @@ func _physics_process(delta: float) -> void:
 		if timer<=0:
 			state="CHARGE"
 			timer=1.1
+			world.play_sound.rpc("charge",global_position+Vector3.UP*1.5)
 	elif state=="CHARGE":
 		velocity.x=charge_dir.x*(19 if boss else 10)
 		velocity.z=charge_dir.z*(19 if boss else 10)
@@ -414,9 +415,14 @@ func _physics_process(delta: float) -> void:
 			timer=2.2
 			if is_on_wall():
 				world.fx.rpc(global_position+Vector3.UP*(2.0 if boss else 1.1),Color("f2d98b"),2.6 if boss else 1.3)
+				world.play_sound.rpc("stun",global_position+Vector3.UP*1.5)
 				if boss:
 					take_damage(15)
 	elif target:
+		# A patrolling guard that acquires a target gives a sharp whistle:
+		# the steal moment players read instantly.
+		if state=="PATROL":
+			world.play_sound.rpc("alert",global_position+Vector3.UP*1.5)
 		state="HUNT"
 		var offset: Vector3 = target.global_position-global_position
 		offset.y=0
@@ -426,6 +432,7 @@ func _physics_process(delta: float) -> void:
 			state="WIND UP"
 			timer=1.15 if hp>max_hp*.45 else .7
 			attack_timer=4.8 if hp>max_hp*.45 else 3.2
+			world.play_sound.rpc("windup",global_position+Vector3.UP*1.5)
 			if tier==3 and randf()<.5:
 				world.fire_breath(global_position,charge_dir,str(name))
 		elif offset.length()<1.7 and attack_timer<=0:

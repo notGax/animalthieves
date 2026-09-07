@@ -21,6 +21,9 @@ const RATE := 22050
 const VOLUME_DB := {
 	"crash": -2.0, "win": -5.0, "slap": -6.0, "heal": -7.0,
 	"cash": -8.0, "tool": -9.0, "click": -9.0,
+	"grapple": -7.0, "grapple_hit": -6.0, "water": -8.0, "transform": -6.0,
+	"crystal": -6.0, "alert": -5.0, "windup": -4.0, "charge": -3.0,
+	"stun": -5.0, "grab": -10.0, "drop": -9.0, "throw": -8.0,
 }
 
 ## Ambient emitters and their anchors. Positions mirror the generator's hero
@@ -58,6 +61,30 @@ static func stream(kind: String) -> AudioStreamWAV:
 				samples = _synth_crash()
 			"click":
 				samples = _synth_click()
+			"grapple":
+				samples = _synth_grapple()
+			"grapple_hit":
+				samples = _synth_grapple_hit()
+			"water":
+				samples = _synth_water()
+			"transform":
+				samples = _synth_transform()
+			"crystal":
+				samples = _synth_crystal()
+			"alert":
+				samples = _synth_alert()
+			"windup":
+				samples = _synth_windup()
+			"charge":
+				samples = _synth_charge()
+			"stun":
+				samples = _synth_stun()
+			"grab":
+				samples = _synth_grab()
+			"drop":
+				samples = _synth_drop()
+			"throw":
+				samples = _synth_throw()
 			"fridge_hum":
 				samples = _loop_tone(1.0, [[100.0, .10], [200.0, .05], [300.0, .02]], 1.0, .15)
 				loop = true
@@ -326,4 +353,190 @@ static func _synth_store_jingle() -> PackedFloat32Array:
 		_note(out, slot + .6, 1.2, chords[c][0] * 1.5, .07)
 		_note(out, slot, .6, chords[c][1][1], .085)
 		_note(out, slot + .6, .6, chords[c][1][2], .085)
+	return out
+
+
+static func _synth_grapple() -> PackedFloat32Array:
+	# Hook launch: a short rising zip with a ratchet of three fast clicks.
+	var count := int(.16 * RATE)
+	var out := PackedFloat32Array()
+	out.resize(count)
+	for i in count:
+		var t := float(i) / RATE
+		var u := t / .16
+		var env := sin(PI * minf(u * 2.2, 1.0)) * exp(-t * 14.0)
+		out[i] = env * (.5 * sin(TAU * lerpf(240.0, 900.0, u) * t) + .22 * sin(TAU * 1800.0 * t) * exp(-t * 30.0))
+	for k in 3:
+		_blip(out, int(k * .035 * RATE), .03, 1500.0 - k * 220.0, 900.0 - k * 180.0, .3)
+	return out
+
+
+static func _synth_grapple_hit() -> PackedFloat32Array:
+	# Connection: a metallic clink into a taut cable twang.
+	var count := int(.26 * RATE)
+	var out := PackedFloat32Array()
+	out.resize(count)
+	for i in count:
+		var t := float(i) / RATE
+		var sample := sin(TAU * 620.0 * t) * exp(-t * 34.0) * .4
+		sample += sin(TAU * 233.0 * t) * exp(-t * 16.0) * .3
+		# The twang: slight downward pitch sag reads as cable tension.
+		var u := t / .26
+		sample += sin(TAU * lerpf(196.0, 165.0, u) * t) * exp(-t * 11.0) * .3
+		out[i] = sample
+	_noise.seed = 31
+	for i in int(.02 * RATE):
+		out[i] += _noise.randf_range(-1.0, 1.0) * exp(-float(i) / RATE * 190.0) * .5
+	return out
+
+
+static func _synth_water() -> PackedFloat32Array:
+	# Spray: bright hiss shaped by a fluttering envelope, over a low gurgle.
+	var count := int(.42 * RATE)
+	var out := PackedFloat32Array()
+	out.resize(count)
+	_noise.seed = 29
+	for i in count:
+		var t := float(i) / RATE
+		var u := t / .42
+		var env := sin(PI * u)
+		env *= 1.0 + .3 * sin(TAU * 37.0 * t)
+		var hiss := _noise.randf_range(-1.0, 1.0) * .38
+		var gurgle := sin(TAU * (128.0 + 46.0 * sin(TAU * 5.0 * t)) * t) * .22
+		out[i] = (hiss + gurgle) * env
+	return out
+
+
+static func _synth_transform() -> PackedFloat32Array:
+	# Morph whoosh: a warbling glide upward wrapped in soft noise.
+	var count := int(.45 * RATE)
+	var out := PackedFloat32Array()
+	out.resize(count)
+	_noise.seed = 31
+	var phase := 0.0
+	for i in count:
+		var t := float(i) / RATE
+		var u := t / .45
+		phase += TAU * lerpf(190.0, 660.0, u * u) / RATE
+		var wobble := sin(TAU * 9.0 * t) * .12
+		var env := sin(PI * u)
+		var body := sin(phase + wobble) * .42 + sin(phase * 1.5) * .16
+		out[i] = (body + _noise.randf_range(-1.0, 1.0) * .14) * env
+	return out
+
+
+static func _synth_crystal() -> PackedFloat32Array:
+	# Revival chime: two glassy partials with a delayed sparkle above them.
+	var count := int(.55 * RATE)
+	var out := PackedFloat32Array()
+	out.resize(count)
+	for i in count:
+		var t := float(i) / RATE
+		var sample := sin(TAU * 1318.5 * t) * exp(-t * 7.0) * .34
+		sample += sin(TAU * 1975.5 * t) * exp(-t * 9.0) * .18
+		if t > .12:
+			var local: float = t - .12
+			sample += sin(TAU * 2637.0 * local) * exp(-local * 10.0) * .16
+		out[i] = sample
+	return out
+
+
+static func _synth_alert() -> PackedFloat32Array:
+	# Spotted! Two sharp ascending chirps - the guard's whistle.
+	var count := int(.24 * RATE)
+	var out := PackedFloat32Array()
+	out.resize(count)
+	for chirp in 2:
+		var begin := int((.02 + chirp * .11) * RATE)
+		for j in int(.07 * RATE):
+			var idx := begin + j
+			var t := float(j) / RATE
+			var u := float(j) / (.07 * RATE)
+			if idx < count:
+				out[idx] += sin(TAU * (1560.0 + 260.0 * chirp) * t) * sin(PI * u) * .42
+	return out
+
+
+static func _synth_windup() -> PackedFloat32Array:
+	# The boss coils: a low rumble climbing in pitch and volume.
+	var count := int(.95 * RATE)
+	var out := PackedFloat32Array()
+	out.resize(count)
+	var phase := 0.0
+	for i in count:
+		var t := float(i) / RATE
+		var u := t / .95
+		phase += TAU * lerpf(44.0, 118.0, u * u) / RATE
+		var saw := fmod(phase / TAU, 1.0) * 2.0 - 1.0
+		out[i] = (saw * .4 + sin(phase * 2.0) * .22 + sin(phase * 3.0) * .1) * (u * .8 + .1)
+	return out
+
+
+static func _synth_charge() -> PackedFloat32Array:
+	# Charge roar: layered low saws with a bright top partial and noise push.
+	var count := int(.55 * RATE)
+	var out := PackedFloat32Array()
+	out.resize(count)
+	_noise.seed = 37
+	var phase := 0.0
+	for i in count:
+		var t := float(i) / RATE
+		var u := t / .55
+		phase += TAU * lerpf(66.0, 96.0, u) / RATE
+		var saw := fmod(phase / TAU, 1.0) * 2.0 - 1.0
+		var env := sin(PI * minf(u * 1.6, 1.0))
+		out[i] = (saw * .45 + sin(phase * 2.0) * .25 + _noise.randf_range(-1.0, 1.0) * .18) * env
+	return out
+
+
+static func _synth_stun() -> PackedFloat32Array:
+	# Dizzy descending wobble - the charge that ended in a wall.
+	var count := int(.7 * RATE)
+	var out := PackedFloat32Array()
+	out.resize(count)
+	var phase := 0.0
+	for i in count:
+		var t := float(i) / RATE
+		var u := t / .7
+		phase += TAU * lerpf(520.0, 190.0, u) / RATE
+		var vibrato := sin(TAU * (7.0 - 3.0 * u) * t) * .3
+		out[i] = (sin(phase + vibrato) * .4 + sin(phase * .5) * .2) * (1.0 - u * .7)
+	return out
+
+
+static func _synth_grab() -> PackedFloat32Array:
+	# Mitts close: a soft quick pop.
+	var count := int(.08 * RATE)
+	var out := PackedFloat32Array()
+	out.resize(count)
+	for i in count:
+		var t := float(i) / RATE
+		var u := t / .08
+		out[i] = sin(TAU * lerpf(340.0, 170.0, u) * t) * sin(PI * u) * .5
+	return out
+
+
+static func _synth_drop() -> PackedFloat32Array:
+	# Set down: a soft box thud.
+	var count := int(.13 * RATE)
+	var out := PackedFloat32Array()
+	out.resize(count)
+	_noise.seed = 41
+	for i in count:
+		var t := float(i) / RATE
+		out[i] = sin(TAU * 92.0 * t) * exp(-t * 26.0) * .55 + _noise.randf_range(-1.0, 1.0) * exp(-t * 80.0) * .2
+	return out
+
+
+static func _synth_throw() -> PackedFloat32Array:
+	# Released with force: a whistling whoosh.
+	var count := int(.2 * RATE)
+	var out := PackedFloat32Array()
+	out.resize(count)
+	_noise.seed = 41
+	for i in count:
+		var t := float(i) / RATE
+		var u := t / .2
+		var flutter := 1.0 + .4 * sin(TAU * 23.0 * t)
+		out[i] = _noise.randf_range(-1.0, 1.0) * .3 * sin(PI * u) * flutter + sin(TAU * lerpf(300.0, 760.0, u) * t) * sin(PI * u) * .14
 	return out

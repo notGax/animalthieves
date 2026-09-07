@@ -1,0 +1,293 @@
+[gd_scene format=3]
+
+;; Authored shopping-cart vehicle. Consumed by VehicleRig (scripts/vehicles/
+;; vehicle_rig.gd), which spins the four wheel pivots from real velocity and
+;; steers the front pair from the body's yaw rate. Materials crop one tile
+;; each from assets/vehicles/vehicle_atlas.png (see tools/build_vehicle_atlas.py
+;; for the tile map). Geometry here is the visual twin of the gameplay
+;; collision built in heist_world.gd - keep them in step.
+
+[ext_resource type="Texture2D" path="res://assets/vehicles/vehicle_atlas.png" id="1"]
+
+[sub_resource type="StandardMaterial3D" id="paint"]
+albedo_texture = ExtResource("1")
+uv1_offset = Vector3(0, 0, 0)
+uv1_scale = Vector3(0.25, 0.25, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="StandardMaterial3D" id="worn"]
+albedo_texture = ExtResource("1")
+uv1_offset = Vector3(0.25, 0, 0)
+uv1_scale = Vector3(0.25, 0.25, 1)
+roughness = 0.7
+metallic = 0.05
+
+[sub_resource type="StandardMaterial3D" id="metal"]
+albedo_texture = ExtResource("1")
+uv1_offset = Vector3(0, 0.5, 0)
+uv1_scale = Vector3(0.25, 0.25, 1)
+roughness = 0.45
+metallic = 0.85
+
+[sub_resource type="StandardMaterial3D" id="brass"]
+albedo_texture = ExtResource("1")
+uv1_offset = Vector3(0.25, 0.5, 0)
+uv1_scale = Vector3(0.25, 0.25, 1)
+roughness = 0.35
+metallic = 0.9
+
+[sub_resource type="StandardMaterial3D" id="dark"]
+albedo_texture = ExtResource("1")
+uv1_offset = Vector3(0.5, 0.25, 0)
+uv1_scale = Vector3(0.25, 0.25, 1)
+roughness = 0.85
+metallic = 0.1
+
+[sub_resource type="StandardMaterial3D" id="grime"]
+albedo_texture = ExtResource("1")
+uv1_offset = Vector3(0, 0.75, 0)
+uv1_scale = Vector3(0.25, 0.25, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="lens"]
+albedo_texture = ExtResource("1")
+uv1_offset = Vector3(0.25, 0.75, 0)
+uv1_scale = Vector3(0.25, 0.25, 1)
+roughness = 0.3
+emission_enabled = true
+emission = Color(1, 0.9, 0.62, 1)
+emission_energy_multiplier = 2.4
+
+[sub_resource type="StandardMaterial3D" id="rubber"]
+albedo_texture = ExtResource("1")
+uv1_offset = Vector3(0.5, 0.5, 0)
+uv1_scale = Vector3(0.25, 0.25, 1)
+roughness = 0.95
+
+[sub_resource type="StandardMaterial3D" id="hub"]
+albedo_texture = ExtResource("1")
+uv1_offset = Vector3(0.5, 0.75, 0)
+uv1_scale = Vector3(0.25, 0.25, 1)
+roughness = 0.4
+metallic = 0.8
+
+[sub_resource type="BoxMesh" id="plate_mesh"]
+size = Vector3(1.4, 0.1, 2.1)
+
+[sub_resource type="BoxMesh" id="rail_mesh"]
+size = Vector3(0.08, 0.08, 2.0)
+
+[sub_resource type="BoxMesh" id="side_wall_mesh"]
+size = Vector3(0.07, 0.62, 2.2)
+
+[sub_resource type="BoxMesh" id="end_wall_mesh"]
+size = Vector3(1.5, 0.62, 0.07)
+
+[sub_resource type="BoxMesh" id="floor_mesh"]
+size = Vector3(1.45, 0.06, 2.15)
+
+[sub_resource type="CylinderMesh" id="post_mesh"]
+top_radius = 0.045
+bottom_radius = 0.045
+height = 0.72
+
+[sub_resource type="CylinderMesh" id="handle_tube_mesh"]
+top_radius = 0.04
+bottom_radius = 0.04
+height = 0.9
+
+[sub_resource type="CylinderMesh" id="handle_bar_mesh"]
+top_radius = 0.05
+bottom_radius = 0.05
+height = 1.16
+
+[sub_resource type="CylinderMesh" id="grip_mesh"]
+top_radius = 0.06
+bottom_radius = 0.06
+height = 0.22
+
+[sub_resource type="SphereMesh" id="bell_mesh"]
+radius = 0.07
+height = 0.14
+
+[sub_resource type="SphereMesh" id="lamp_mesh"]
+radius = 0.09
+height = 0.18
+
+[sub_resource type="CylinderMesh" id="tire_mesh"]
+top_radius = 0.22
+bottom_radius = 0.22
+height = 0.12
+
+[sub_resource type="CylinderMesh" id="hub_mesh"]
+top_radius = 0.099
+bottom_radius = 0.099
+height = 0.1248
+
+[node name="ShoppingCart" type="Node3D"]
+
+[node name="ChassisPlate" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.16, 0)
+mesh = SubResource("plate_mesh")
+material_override = SubResource("metal")
+
+[node name="SkidRailRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.62, -0.28, 0)
+mesh = SubResource("rail_mesh")
+material_override = SubResource("dark")
+
+[node name="SkidRailLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.62, -0.28, 0)
+mesh = SubResource("rail_mesh")
+material_override = SubResource("dark")
+
+[node name="BasketWallRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.76, 0.24, 0)
+rotation = Vector3(0, 0, -0.06)
+mesh = SubResource("side_wall_mesh")
+material_override = SubResource("paint")
+
+[node name="BasketWallLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.76, 0.24, 0)
+rotation = Vector3(0, 0, 0.06)
+mesh = SubResource("side_wall_mesh")
+material_override = SubResource("paint")
+
+[node name="BasketEndFront" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.24, -1.1)
+rotation = Vector3(0.06, 0, 0)
+mesh = SubResource("end_wall_mesh")
+material_override = SubResource("worn")
+
+[node name="BasketEndBack" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.24, 1.1)
+rotation = Vector3(-0.06, 0, 0)
+mesh = SubResource("end_wall_mesh")
+material_override = SubResource("worn")
+
+[node name="BasketFloor" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.04, 0)
+mesh = SubResource("floor_mesh")
+material_override = SubResource("grime")
+
+[node name="PostFrontRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.78, 0.22, -1.12)
+mesh = SubResource("post_mesh")
+material_override = SubResource("brass")
+
+[node name="PostFrontLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.78, 0.22, -1.12)
+mesh = SubResource("post_mesh")
+material_override = SubResource("brass")
+
+[node name="PostBackRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.78, 0.22, 1.12)
+mesh = SubResource("post_mesh")
+material_override = SubResource("brass")
+
+[node name="PostBackLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.78, 0.22, 1.12)
+mesh = SubResource("post_mesh")
+material_override = SubResource("brass")
+
+[node name="HandleTubeRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.55, 0.62, 1.28)
+rotation = Vector3(0.5, 0, 0)
+mesh = SubResource("handle_tube_mesh")
+material_override = SubResource("metal")
+
+[node name="HandleTubeLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.55, 0.62, 1.28)
+rotation = Vector3(0.5, 0, 0)
+mesh = SubResource("handle_tube_mesh")
+material_override = SubResource("metal")
+
+[node name="HandleBar" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.02, 1.5)
+rotation = Vector3(0, 0, 1.5707964)
+mesh = SubResource("handle_bar_mesh")
+material_override = SubResource("metal")
+
+[node name="GripRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.5, 1.02, 1.5)
+rotation = Vector3(0, 0, 1.5707964)
+mesh = SubResource("grip_mesh")
+material_override = SubResource("dark")
+
+[node name="GripLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.5, 1.02, 1.5)
+rotation = Vector3(0, 0, 1.5707964)
+mesh = SubResource("grip_mesh")
+material_override = SubResource("dark")
+
+[node name="Bell" type="MeshInstance3D" parent="."]
+position = Vector3(0.3, 1.08, 1.34)
+mesh = SubResource("bell_mesh")
+material_override = SubResource("brass")
+
+[node name="Headlamp" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.5, -1.14)
+scale = Vector3(1, 0.8, 0.8)
+mesh = SubResource("lamp_mesh")
+material_override = SubResource("lens")
+
+[node name="WheelFL" type="Node3D" parent="."]
+position = Vector3(-0.72, -0.24, -0.72)
+
+[node name="Spin" type="Node3D" parent="WheelFL"]
+
+[node name="Tire" type="MeshInstance3D" parent="WheelFL/Spin"]
+rotation = Vector3(0, 0, 1.5707964)
+mesh = SubResource("tire_mesh")
+material_override = SubResource("rubber")
+
+[node name="Hub" type="MeshInstance3D" parent="WheelFL/Spin"]
+rotation = Vector3(0, 0, 1.5707964)
+mesh = SubResource("hub_mesh")
+material_override = SubResource("hub")
+
+[node name="WheelFR" type="Node3D" parent="."]
+position = Vector3(0.72, -0.24, -0.72)
+
+[node name="Spin" type="Node3D" parent="WheelFR"]
+
+[node name="Tire" type="MeshInstance3D" parent="WheelFR/Spin"]
+rotation = Vector3(0, 0, 1.5707964)
+mesh = SubResource("tire_mesh")
+material_override = SubResource("rubber")
+
+[node name="Hub" type="MeshInstance3D" parent="WheelFR/Spin"]
+rotation = Vector3(0, 0, 1.5707964)
+mesh = SubResource("hub_mesh")
+material_override = SubResource("hub")
+
+[node name="WheelRL" type="Node3D" parent="."]
+position = Vector3(-0.72, -0.24, 0.72)
+
+[node name="Spin" type="Node3D" parent="WheelRL"]
+
+[node name="Tire" type="MeshInstance3D" parent="WheelRL/Spin"]
+rotation = Vector3(0, 0, 1.5707964)
+mesh = SubResource("tire_mesh")
+material_override = SubResource("rubber")
+
+[node name="Hub" type="MeshInstance3D" parent="WheelRL/Spin"]
+rotation = Vector3(0, 0, 1.5707964)
+mesh = SubResource("hub_mesh")
+material_override = SubResource("hub")
+
+[node name="WheelRR" type="Node3D" parent="."]
+position = Vector3(0.72, -0.24, 0.72)
+
+[node name="Spin" type="Node3D" parent="WheelRR"]
+
+[node name="Tire" type="MeshInstance3D" parent="WheelRR/Spin"]
+rotation = Vector3(0, 0, 1.5707964)
+mesh = SubResource("tire_mesh")
+material_override = SubResource("rubber")
+
+[node name="Hub" type="MeshInstance3D" parent="WheelRR/Spin"]
+rotation = Vector3(0, 0, 1.5707964)
+mesh = SubResource("hub_mesh")
+material_override = SubResource("hub")

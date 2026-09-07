@@ -688,6 +688,7 @@ func request_action(action: String,argument: String,direction: Vector3) -> void:
 				data.last_form=data.form
 				data.form_cooldown=120.0
 				fx.rpc(player.global_position,Color("a9df9f"),1.0)
+				play_sound.rpc("transform",player.global_position+Vector3.UP)
 		"slime": data.form="slime"
 	broadcast_state()
 
@@ -907,10 +908,14 @@ func use_tool(player: CharacterBody3D,direction: Vector3) -> void:
 			if float(data.grapple_cd)>0: return
 			data.grapple_cd=1.2
 			var origin := player.global_position+Vector3.UP*1.3
+			# The launch and the connection are two distinct events: the zip
+			# fires from the hook, the clink lands where the hook lands.
+			play_sound.rpc("grapple",origin)
 			var query := PhysicsRayQueryParameters3D.create(origin,origin+direction*28,31,[player.get_rid()])
 			var hit := get_world_3d().direct_space_state.intersect_ray(query)
 			if hit.is_empty(): return
 			beam.rpc(origin,hit.position,Color("d3c493"))
+			play_sound.rpc("grapple_hit",hit.position)
 			var object = hit.collider
 			if object is RigidBody3D:
 				object.apply_central_impulse((origin-object.global_position).normalized()*object.mass*12)
@@ -926,8 +931,8 @@ func use_tool(player: CharacterBody3D,direction: Vector3) -> void:
 				var planar := flat.normalized()*clampf(flat.length()*.85,6.0,13.0)
 				var vertical := clampf(to_target.y*.55,1.2,6.5)
 				impulse_player.rpc(id,Vector3(planar.x,vertical,planar.y))
-			play_sound.rpc("tool",player.global_position+Vector3.UP*1.3)
 		"water":
+			play_sound.rpc("water",player.global_position+Vector3.UP+direction*2)
 			for camera in cameras:
 				if camera.position.distance_to(player.global_position+direction*8)<5:
 					camera.disabled=true
@@ -957,7 +962,7 @@ func use_tool(player: CharacterBody3D,direction: Vector3) -> void:
 					campaign.crystals-=1
 					revive(int(key),100)
 					fx.rpc(other.global_position,Color("acd9ff"),1.5)
-					play_sound.rpc("heal",other.global_position)
+					play_sound.rpc("crystal",other.global_position)
 					save_campaign()
 					return
 		"jetpack":
@@ -1054,8 +1059,12 @@ func update_vehicles(delta: float) -> void:
 		var v_fwd: float=body.linear_velocity.dot(forward)
 		var v_lat: float=body.linear_velocity.dot(right)
 		var throttle: float=-movement.y
-		# Cheap cargo load estimate feeds the profile's penalties.
-		record.load=_vehicle_load(kind,body,record.half)
+		# Cheap cargo load estimate feeds the profile's penalties. Refreshed at
+		# 8 Hz instead of every physics frame: a slow scan is indistinguishable
+		# from a per-frame one for a box that changes when items are dropped in.
+		if game_clock-float(record.get("load_clock",-10.0))>=.125:
+			record.load_clock=game_clock
+			record.load=_vehicle_load(kind,body,record.half)
 		var accel: float=profile.acceleration*lerpf(1.0,profile.cargo_acceleration_penalty,record.load)
 		var top_speed: float=profile.max_forward_speed*lerpf(1.0,profile.cargo_speed_penalty,record.load)
 		if throttle>.05:
@@ -1112,17 +1121,30 @@ func _vehicle_curb_assist(kind: String,record: Dictionary,body: RigidBody3D,prof
 
 ## Ram impacts are discrete events with per-enemy cooldowns, replacing the old
 ## continuous while-overlapping damage that let a parked car grind a boss down.
+## A hit is geometry plus closing speed: the enemy must sit inside the
+## vehicle's forward box (from just behind the nose to a bumper-reach ahead,
+## laterally inside the body width) AND the vehicle must actually be moving
+## toward it along its own forward axis. Sideways scrapes, reverse nudges and
+## a long nose merely approaching someone never count.
 func _ram_impacts(kind: String,record: Dictionary,body: RigidBody3D,profile: Dictionary) -> void:
 	if record.rider<=0: return
-	var planar := Vector2(body.linear_velocity.x,body.linear_velocity.z).length()
-	if planar<profile.ram_min_speed: return
+	var yaw: float=body.rotation.y
+	var forward := Vector3(-sin(yaw),0,-cos(yaw))
+	# Closing speed along the vehicle's own forward axis, not planar magnitude.
+	var closing: float=body.linear_velocity.dot(forward)
+	if closing<float(profile.ram_min_speed): return
+	var half: Vector3=record.half
+	var to_local: Transform3D=body.global_transform.affine_inverse()
 	for enemy in enemies:
 		if enemy.hp<=0: continue
-		if enemy.global_position.distance_to(body.global_position)>2.4: continue
+		var local: Vector3=to_local*(enemy.global_position)
+		if local.z>-(half.z-.3) or local.z<-(half.z+1.1): continue
+		if absf(local.x)>half.x+.45: continue
+		if local.y<-half.y or local.y>half.y+1.6: continue
 		var key: int=enemy.get_instance_id()
 		if game_clock-float(record.ram_clock.get(key,-10.0))<profile.ram_cooldown: continue
 		record.ram_clock[key]=game_clock
-		enemy.take_damage(profile.ram_strength*clampf(planar/(profile.max_forward_speed*2.0),.4,1.0))
+		enemy.take_damage(profile.ram_strength*clampf(closing/(profile.max_forward_speed*2.0),.4,1.0))
 		enemy.state="STUNNED"
 		enemy.timer=1.0
 		fx.rpc(body.global_position+Vector3(0,.5,0),Color("ffd27a"),.7)
@@ -1582,6 +1604,7 @@ func toggle_cargo(player: CharacterBody3D,direction: Vector3) -> void:
 		nearest_item.freeze=true
 		data.held=str(nearest_item.name)
 		data.carry_direction=direction
+		play_sound.rpc("grab",player.global_position+Vector3.UP)
 
 func release_cargo(id: int,velocity: Vector3) -> void:
 	if not player_state.has(str(id)): return
@@ -1594,8 +1617,10 @@ func release_cargo(id: int,velocity: Vector3) -> void:
 		held.freeze=false
 		held.collision_layer=4
 		held.linear_velocity=velocity
-		# Thrown goods leave a small pop where they leave the mitts.
+		# Thrown goods leave a small pop where they leave the mitts; a gentle
+		# release is a set-down, a fast one is a whooshed throw.
 		fx.rpc(held.global_position,Color("e8e2d0"),.45)
+		play_sound.rpc("throw" if velocity.length()>4.0 else "drop",held.global_position)
 	data.held=""
 
 func render_hazards() -> void:

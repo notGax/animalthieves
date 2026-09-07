@@ -77,6 +77,7 @@ var is_attacking := false
 var is_collecting := false
 var external_velocity := Vector3.ZERO
 var _locomotion := Vector2.ZERO
+var _air_speed_ceiling := 0.0
 var _coyote_clock := 0.0
 var _jump_buffer_clock := 0.0
 var _landing_softness := 0.0
@@ -276,13 +277,18 @@ func _apply_locomotion(delta: float, input_direction: Vector2, jump_held: bool) 
 	var target := Vector2(direction.x, direction.z) * speed
 	var softness := 0.45 if _landing_softness > 0.0 else 1.0
 	if is_on_floor():
+		# The air ceiling is whatever the ground last granted: refreshed on
+		# every grounded tick, held through the jump, so a sprint or a buffed
+		# takeoff keeps its momentum but air control can never add more.
+		_air_speed_ceiling = _locomotion.length()
 		var rate: float = (GROUND_ACCELERATION if target != Vector2.ZERO else GROUND_DECELERATION) * softness
 		_locomotion = _locomotion.move_toward(target, rate * delta)
 	elif target != Vector2.ZERO:
-		# Air control steers without granting speed: momentum above the cap is
-		# preserved, and the ceiling never exceeds what the ground granted.
+		# Air control steers without granting speed: momentum above AIR_MAX_SPEED
+		# is preserved (from a sprint takeoff or a speed buff), and the ceiling
+		# is frozen at takeoff so held inputs cannot re-accelerate in midair.
 		_locomotion = _locomotion.move_toward(target, AIR_ACCELERATION * delta)
-		var ceiling := maxf(AIR_MAX_SPEED, Vector2(_locomotion.x, _locomotion.y).length())
+		var ceiling := maxf(AIR_MAX_SPEED, _air_speed_ceiling)
 		if _locomotion.length() > ceiling:
 			_locomotion = _locomotion.normalized() * ceiling
 	else:

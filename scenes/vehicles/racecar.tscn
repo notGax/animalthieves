@@ -1,0 +1,259 @@
+[gd_scene format=3]
+
+;; Authored racecar vehicle. Consumed by VehicleRig (scripts/vehicles/
+;; vehicle_rig.gd), which spins the four wheel pivots from real velocity and
+;; steers the front pair from the body's yaw rate. Materials crop one tile
+;; each from assets/vehicles/vehicle_atlas.png (see tools/build_vehicle_atlas.py
+;; for the tile map). Geometry here is the visual twin of the gameplay
+;; collision built in heist_world.gd - keep them in step.
+
+[ext_resource type="Texture2D" path="res://assets/vehicles/vehicle_atlas.png" id="1"]
+
+[sub_resource type="StandardMaterial3D" id="paint"]
+albedo_texture = ExtResource("1")
+uv1_offset = Vector3(0, 0.25, 0)
+uv1_scale = Vector3(0.25, 0.25, 1)
+roughness = 0.55
+metallic = 0.1
+
+[sub_resource type="StandardMaterial3D" id="worn"]
+albedo_texture = ExtResource("1")
+uv1_offset = Vector3(0.25, 0.25, 0)
+uv1_scale = Vector3(0.25, 0.25, 1)
+roughness = 0.7
+metallic = 0.05
+
+[sub_resource type="StandardMaterial3D" id="metal"]
+albedo_texture = ExtResource("1")
+uv1_offset = Vector3(0, 0.5, 0)
+uv1_scale = Vector3(0.25, 0.25, 1)
+roughness = 0.45
+metallic = 0.85
+
+[sub_resource type="StandardMaterial3D" id="dark"]
+albedo_texture = ExtResource("1")
+uv1_offset = Vector3(0.5, 0.25, 0)
+uv1_scale = Vector3(0.25, 0.25, 1)
+roughness = 0.85
+metallic = 0.1
+
+[sub_resource type="StandardMaterial3D" id="cream"]
+albedo_texture = ExtResource("1")
+uv1_offset = Vector3(0.75, 0.25, 0)
+uv1_scale = Vector3(0.25, 0.25, 1)
+roughness = 0.75
+
+[sub_resource type="StandardMaterial3D" id="glass"]
+albedo_texture = ExtResource("1")
+uv1_offset = Vector3(0.75, 0.5, 0)
+uv1_scale = Vector3(0.25, 0.25, 1)
+albedo_color = Color(1, 1, 1, 0.55)
+roughness = 0.12
+metallic = 0.3
+transparency = 1
+
+[sub_resource type="StandardMaterial3D" id="rubber"]
+albedo_texture = ExtResource("1")
+uv1_offset = Vector3(0.5, 0.5, 0)
+uv1_scale = Vector3(0.25, 0.25, 1)
+roughness = 0.95
+
+[sub_resource type="StandardMaterial3D" id="hub"]
+albedo_texture = ExtResource("1")
+uv1_offset = Vector3(0.5, 0.75, 0)
+uv1_scale = Vector3(0.25, 0.25, 1)
+roughness = 0.4
+metallic = 0.8
+
+[sub_resource type="BoxMesh" id="tub_mesh"]
+size = Vector3(1.3, 0.34, 2.3)
+
+[sub_resource type="BoxMesh" id="nose_mid_mesh"]
+size = Vector3(1.0, 0.24, 0.7)
+
+[sub_resource type="BoxMesh" id="nose_tip_mesh"]
+size = Vector3(0.6, 0.18, 0.5)
+
+[sub_resource type="BoxMesh" id="side_pod_mesh"]
+size = Vector3(0.34, 0.26, 1.1)
+
+[sub_resource type="BoxMesh" id="engine_cover_mesh"]
+size = Vector3(0.7, 0.3, 1.0)
+
+[sub_resource type="SphereMesh" id="canopy_mesh"]
+radius = 0.42
+height = 0.84
+
+[sub_resource type="TorusMesh" id="halo_mesh"]
+inner_radius = 0.34
+outer_radius = 0.42
+
+[sub_resource type="BoxMesh" id="wing_mesh"]
+size = Vector3(1.5, 0.07, 0.42)
+
+[sub_resource type="BoxMesh" id="wing_strut_mesh"]
+size = Vector3(0.08, 0.3, 0.3)
+
+[sub_resource type="CylinderMesh" id="exhaust_mesh"]
+top_radius = 0.07
+bottom_radius = 0.07
+height = 0.3
+
+[sub_resource type="CylinderMesh" id="roundel_mesh"]
+top_radius = 0.16
+bottom_radius = 0.16
+height = 0.04
+
+[sub_resource type="BoxMesh" id="splitter_mesh"]
+size = Vector3(1.1, 0.06, 0.3)
+
+[sub_resource type="CylinderMesh" id="tire_mesh"]
+top_radius = 0.4
+bottom_radius = 0.4
+height = 0.26
+
+[sub_resource type="CylinderMesh" id="hub_mesh"]
+top_radius = 0.18
+bottom_radius = 0.18
+height = 0.2704
+
+[node name="Racecar" type="Node3D"]
+
+[node name="Tub" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.02, 0.1)
+mesh = SubResource("tub_mesh")
+material_override = SubResource("paint")
+
+[node name="NoseMid" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.04, -1.25)
+mesh = SubResource("nose_mid_mesh")
+material_override = SubResource("worn")
+
+[node name="NoseTip" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.08, -1.75)
+mesh = SubResource("nose_tip_mesh")
+material_override = SubResource("worn")
+
+[node name="SidePodRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.78, -0.06, 0.15)
+mesh = SubResource("side_pod_mesh")
+material_override = SubResource("dark")
+
+[node name="SidePodLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.78, -0.06, 0.15)
+mesh = SubResource("side_pod_mesh")
+material_override = SubResource("dark")
+
+[node name="EngineCover" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.3, 0.75)
+mesh = SubResource("engine_cover_mesh")
+material_override = SubResource("worn")
+
+[node name="Canopy" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.34, 0.12)
+scale = Vector3(0.8, 0.55, 0.9)
+mesh = SubResource("canopy_mesh")
+material_override = SubResource("glass")
+
+[node name="Halo" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.52, 0.12)
+mesh = SubResource("halo_mesh")
+material_override = SubResource("dark")
+
+[node name="RearWing" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.62, 1.2)
+rotation = Vector3(-0.14, 0, 0)
+mesh = SubResource("wing_mesh")
+material_override = SubResource("dark")
+
+[node name="WingStrutRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.5, 0.44, 1.2)
+mesh = SubResource("wing_strut_mesh")
+material_override = SubResource("metal")
+
+[node name="WingStrutLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.5, 0.44, 1.2)
+mesh = SubResource("wing_strut_mesh")
+material_override = SubResource("metal")
+
+[node name="ExhaustRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.26, 0.12, 1.42)
+rotation = Vector3(1.5707964, 0, 0)
+mesh = SubResource("exhaust_mesh")
+material_override = SubResource("metal")
+
+[node name="ExhaustLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.26, 0.12, 1.42)
+rotation = Vector3(1.5707964, 0, 0)
+mesh = SubResource("exhaust_mesh")
+material_override = SubResource("metal")
+
+[node name="NoseRoundel" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.14, -1.2)
+mesh = SubResource("roundel_mesh")
+material_override = SubResource("cream")
+
+[node name="FrontSplitter" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.18, -1.95)
+mesh = SubResource("splitter_mesh")
+material_override = SubResource("dark")
+
+[node name="WheelFL" type="Node3D" parent="."]
+position = Vector3(-0.86, -0.22, -0.85)
+
+[node name="Spin" type="Node3D" parent="WheelFL"]
+
+[node name="Tire" type="MeshInstance3D" parent="WheelFL/Spin"]
+rotation = Vector3(0, 0, 1.5707964)
+mesh = SubResource("tire_mesh")
+material_override = SubResource("rubber")
+
+[node name="Hub" type="MeshInstance3D" parent="WheelFL/Spin"]
+rotation = Vector3(0, 0, 1.5707964)
+mesh = SubResource("hub_mesh")
+material_override = SubResource("hub")
+
+[node name="WheelFR" type="Node3D" parent="."]
+position = Vector3(0.86, -0.22, -0.85)
+
+[node name="Spin" type="Node3D" parent="WheelFR"]
+
+[node name="Tire" type="MeshInstance3D" parent="WheelFR/Spin"]
+rotation = Vector3(0, 0, 1.5707964)
+mesh = SubResource("tire_mesh")
+material_override = SubResource("rubber")
+
+[node name="Hub" type="MeshInstance3D" parent="WheelFR/Spin"]
+rotation = Vector3(0, 0, 1.5707964)
+mesh = SubResource("hub_mesh")
+material_override = SubResource("hub")
+
+[node name="WheelRL" type="Node3D" parent="."]
+position = Vector3(-0.86, -0.22, 0.95)
+
+[node name="Spin" type="Node3D" parent="WheelRL"]
+
+[node name="Tire" type="MeshInstance3D" parent="WheelRL/Spin"]
+rotation = Vector3(0, 0, 1.5707964)
+mesh = SubResource("tire_mesh")
+material_override = SubResource("rubber")
+
+[node name="Hub" type="MeshInstance3D" parent="WheelRL/Spin"]
+rotation = Vector3(0, 0, 1.5707964)
+mesh = SubResource("hub_mesh")
+material_override = SubResource("hub")
+
+[node name="WheelRR" type="Node3D" parent="."]
+position = Vector3(0.86, -0.22, 0.95)
+
+[node name="Spin" type="Node3D" parent="WheelRR"]
+
+[node name="Tire" type="MeshInstance3D" parent="WheelRR/Spin"]
+rotation = Vector3(0, 0, 1.5707964)
+mesh = SubResource("tire_mesh")
+material_override = SubResource("rubber")
+
+[node name="Hub" type="MeshInstance3D" parent="WheelRR/Spin"]
+rotation = Vector3(0, 0, 1.5707964)
+mesh = SubResource("hub_mesh")
+material_override = SubResource("hub")

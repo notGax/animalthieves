@@ -4,7 +4,8 @@ extends Node3D
 ## Authored visual rig for a vehicle. This node is a child of the gameplay
 ## root (the server-authoritative RigidBody3D in heist_world.gd) and handles
 ## everything purely presentational:
-##   - the authored chunky body build (per-kind, from VehicleMaterials)
+##   - the authored vehicle scene per kind (scenes/vehicles/*.tscn): body,
+##     wheels and materials all live in the asset, not in code
 ##   - wheel pivots that spin from real longitudinal speed and steer from the
 ##     body's actual yaw rate (both derived locally - no new network fields)
 ##   - visual-only suspension springs (pitch under accel/brake, roll in turns,
@@ -24,6 +25,16 @@ const SPRING_SETTINGS: Dictionary = {
 }
 
 const GameAudio = preload("res://scripts/audio/game_audio.gd")
+
+## The authored vehicle assets. Each scene carries the full body build plus
+## four wheel pivots named WheelFL/WheelFR/WheelRL/WheelRR, each holding a
+## "Spin" child the rig rotates from real velocity.
+const VEHICLE_SCENES: Dictionary = {
+	"cart": preload("res://scenes/vehicles/shopping_cart.tscn"),
+	"truck": preload("res://scenes/vehicles/mini_truck.tscn"),
+	"racecar": preload("res://scenes/vehicles/racecar.tscn"),
+}
+const WHEEL_ORDER: Array[String] = ["WheelFL", "WheelFR", "WheelRL", "WheelRR"]
 
 var kind := "cart"
 var profile: Dictionary = {}
@@ -67,10 +78,17 @@ func _ready() -> void:
 	chassis = Node3D.new()
 	chassis.name = "Chassis"
 	add_child(chassis)
-	match kind:
-		"cart": _build_cart()
-		"truck": _build_truck()
-		"racecar": _build_racecar()
+	# The authored asset provides the whole body build and the four wheel
+	# pivots; the rig only animates them and adds the runtime-only nodes
+	# (driver marker, audio hooks) that belong to session state.
+	var visual: Node3D = VEHICLE_SCENES[kind].instantiate()
+	visual.name = "Body"
+	chassis.add_child(visual)
+	for wheel_name in WHEEL_ORDER:
+		var pivot: Node3D = visual.get_node_or_null(wheel_name) as Node3D
+		if pivot == null:
+			continue
+		_wheels.append(pivot)
 	driver_marker = Marker3D.new()
 	driver_marker.name = "DriverMarker"
 	chassis.add_child(driver_marker)
@@ -204,194 +222,3 @@ func _update_wheels(delta: float) -> void:
 		var spin: Node3D = pivot.get_node_or_null("Spin") as Node3D
 		if spin:
 			spin.rotation.x = _wheel_spin
-
-
-# --- authored builds -------------------------------------------------------
-
-func _box(parent: Node3D, size: Vector3, position: Vector3, material: Material,
-		rotation: Vector3 = Vector3.ZERO) -> MeshInstance3D:
-	var mesh := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = size
-	mesh.mesh = box
-	mesh.position = position
-	mesh.rotation = rotation
-	mesh.material_override = material
-	parent.add_child(mesh)
-	return mesh
-
-
-func _cylinder(parent: Node3D, radius: float, height: float, position: Vector3, material: Material,
-		axis: Vector3 = Vector3(0, 1, 0), rotation: Vector3 = Vector3.ZERO) -> MeshInstance3D:
-	var mesh := MeshInstance3D.new()
-	var cylinder := CylinderMesh.new()
-	cylinder.top_radius = radius
-	cylinder.bottom_radius = radius
-	cylinder.height = height
-	mesh.mesh = cylinder
-	mesh.position = position
-	mesh.rotation = rotation
-	# CylinderMesh is born along Y; tilt it to the requested axis.
-	if absf(axis.x) > 0.5:
-		mesh.rotation.z = PI * 0.5
-	elif absf(axis.z) > 0.5:
-		mesh.rotation.x = PI * 0.5
-	mesh.material_override = material
-	parent.add_child(mesh)
-	return mesh
-
-
-func _sphere(parent: Node3D, radius: float, position: Vector3, material: Material,
-		scale: Vector3 = Vector3.ONE) -> MeshInstance3D:
-	var mesh := MeshInstance3D.new()
-	var sphere := SphereMesh.new()
-	sphere.radius = radius
-	sphere.height = radius * 2.0
-	mesh.mesh = sphere
-	mesh.position = position
-	mesh.scale = scale
-	mesh.material_override = material
-	parent.add_child(mesh)
-	return mesh
-
-
-## One wheel: steering pivot + spin pivot + tire + hubcap.
-func _wheel(parent: Node3D, position: Vector3, radius: float, width: float, front: bool) -> void:
-	var pivot := Node3D.new()
-	pivot.name = "WheelFL" if front and position.x < 0 else ("WheelFR" if front else ("WheelRL" if position.x < 0 else "WheelRR"))
-	pivot.position = position
-	parent.add_child(pivot)
-	if front:
-		pivot.set_meta("steers", true)
-	var spin := Node3D.new()
-	spin.name = "Spin"
-	pivot.add_child(spin)
-	var tire := _cylinder(spin, radius, width, Vector3.ZERO, VehicleMaterials.rubber(), Vector3(1, 0, 0))
-	tire.rotation.z = PI * 0.5
-	_hub(spin, radius, width)
-	_wheels.append(pivot)
-
-
-func _hub(spin: Node3D, radius: float, width: float) -> void:
-	_cylinder(spin, radius * 0.45, width * 1.04, Vector3.ZERO, VehicleMaterials.hub(), Vector3(1, 0, 0))
-
-
-# --- cart: wire basket, handle, tiny rattling wheels -----------------------
-
-func _build_cart() -> void:
-	var paint := VehicleMaterials.paint("cart")
-	var worn := VehicleMaterials.paint_worn("cart")
-	# chassis plate + skid rails
-	_box(chassis, Vector3(1.4, 0.1, 2.1), Vector3(0, -0.16, 0), VehicleMaterials.metal())
-	_box(chassis, Vector3(0.08, 0.08, 2.0), Vector3(0.62, -0.28, 0), VehicleMaterials.dark())
-	_box(chassis, Vector3(0.08, 0.08, 2.0), Vector3(-0.62, -0.28, 0), VehicleMaterials.dark())
-	# basket walls, slightly flared outward for the shopping-cart read
-	var wall := Vector3(0.07, 0.62, 2.2)
-	_box(chassis, wall, Vector3(0.76, 0.24, 0), paint, Vector3(0, 0, -0.06))
-	_box(chassis, wall, Vector3(-0.76, 0.24, 0), paint, Vector3(0, 0, 0.06))
-	_box(chassis, Vector3(1.5, 0.62, 0.07), Vector3(0, 0.24, -1.1), worn, Vector3(0.06, 0, 0))
-	_box(chassis, Vector3(1.5, 0.62, 0.07), Vector3(0, 0.24, 1.1), worn, Vector3(-0.06, 0, 0))
-	# basket floor + grime
-	_box(chassis, Vector3(1.45, 0.06, 2.15), Vector3(0, -0.04, 0), VehicleMaterials.grime())
-	# corner posts
-	for x in [-0.78, 0.78]:
-		for z in [-1.12, 1.12]:
-			_cylinder(chassis, 0.045, 0.72, Vector3(x, 0.22, z), VehicleMaterials.brass())
-	# handle: tubes rising rearward + crossbar + grips
-	_cylinder(chassis, 0.04, 0.9, Vector3(0.55, 0.62, 1.28), VehicleMaterials.metal(), Vector3(0, 1, 0), Vector3(0.5, 0, 0))
-	_cylinder(chassis, 0.04, 0.9, Vector3(-0.55, 0.62, 1.28), VehicleMaterials.metal(), Vector3(0, 1, 0), Vector3(0.5, 0, 0))
-	_cylinder(chassis, 0.05, 1.16, Vector3(0, 1.02, 1.5), VehicleMaterials.metal(), Vector3(1, 0, 0))
-	_cylinder(chassis, 0.06, 0.22, Vector3(0.5, 1.02, 1.5), VehicleMaterials.dark(), Vector3(1, 0, 0))
-	_cylinder(chassis, 0.06, 0.22, Vector3(-0.5, 1.02, 1.5), VehicleMaterials.dark(), Vector3(1, 0, 0))
-	# bell
-	_sphere(chassis, 0.07, Vector3(0.3, 1.08, 1.34), VehicleMaterials.brass())
-	# headlamp on the basket front
-	_sphere(chassis, 0.09, Vector3(0, 0.5, -1.14), VehicleMaterials.lens(), Vector3(1, 0.8, 0.8))
-	var wheel_positions: Array[Vector3] = [
-		Vector3(-0.72, -0.24, -0.72), Vector3(0.72, -0.24, -0.72),
-		Vector3(-0.72, -0.24, 0.72), Vector3(0.72, -0.24, 0.72),
-	]
-	for i in wheel_positions.size():
-		_wheel(chassis, wheel_positions[i], float(profile.get("visual_wheel_radius", 0.22)), 0.12, i < 2)
-
-
-# --- truck: cab, flatbed, fenders, big wheels ------------------------------
-
-func _build_truck() -> void:
-	var paint := VehicleMaterials.paint("truck")
-	var worn := VehicleMaterials.paint_worn("truck")
-	# flatbed chassis
-	_box(chassis, Vector3(2.3, 0.18, 3.9), Vector3(0, -0.42, 0.1), worn)
-	# cab block + windshield + roof
-	_box(chassis, Vector3(2.35, 1.0, 1.35), Vector3(0, 0.28, -1.25), paint)
-	_box(chassis, Vector3(2.1, 0.55, 0.1), Vector3(0, 0.42, -1.9), VehicleMaterials.glass(), Vector3(-0.16, 0, 0))
-	_box(chassis, Vector3(2.4, 0.12, 1.4), Vector3(0, 0.84, -1.25), VehicleMaterials.cream())
-	# side windows
-	_box(chassis, Vector3(0.06, 0.4, 0.7), Vector3(1.19, 0.5, -1.2), VehicleMaterials.glass())
-	_box(chassis, Vector3(0.06, 0.4, 0.7), Vector3(-1.19, 0.5, -1.2), VehicleMaterials.glass())
-	# front bumper with hazard strip, grille, headlights
-	_box(chassis, Vector3(2.5, 0.34, 0.24), Vector3(0, -0.32, -2.06), VehicleMaterials.metal())
-	_box(chassis, Vector3(2.1, 0.1, 0.05), Vector3(0, -0.2, -2.2), VehicleMaterials.hazard())
-	_box(chassis, Vector3(1.2, 0.4, 0.08), Vector3(0, 0.3, -1.96), VehicleMaterials.dark())
-	_sphere(chassis, 0.14, Vector3(0.85, 0.05, -2.02), VehicleMaterials.lens(), Vector3(1, 0.9, 0.7))
-	_sphere(chassis, 0.14, Vector3(-0.85, 0.05, -2.02), VehicleMaterials.lens(), Vector3(1, 0.9, 0.7))
-	# flatbed side rails + rear gate (visual twins of the gameplay collision rails)
-	_box(chassis, Vector3(0.1, 0.62, 2.4), Vector3(1.2, 0.06, 1.2), paint)
-	_box(chassis, Vector3(0.1, 0.62, 2.4), Vector3(-1.2, 0.06, 1.2), paint)
-	_box(chassis, Vector3(2.3, 0.62, 0.1), Vector3(0, 0.06, 2.35), worn)
-	_box(chassis, Vector3(2.3, 0.05, 2.4), Vector3(0, -0.28, 1.2), VehicleMaterials.grime())
-	# fenders over the rear wheels
-	_box(chassis, Vector3(0.14, 0.1, 1.5), Vector3(1.22, -0.16, 1.15), VehicleMaterials.dark())
-	_box(chassis, Vector3(0.14, 0.1, 1.5), Vector3(-1.22, -0.16, 1.15), VehicleMaterials.dark())
-	# exhaust stack + tip, mirrors
-	_cylinder(chassis, 0.08, 1.5, Vector3(1.05, 0.75, -0.45), VehicleMaterials.metal(), Vector3(0, 1, 0))
-	_cylinder(chassis, 0.1, 0.16, Vector3(1.05, 1.55, -0.45), VehicleMaterials.dark(), Vector3(0, 1, 0))
-	_box(chassis, Vector3(0.3, 0.24, 0.04), Vector3(1.32, 0.66, -1.8), VehicleMaterials.glass())
-	_box(chassis, Vector3(0.3, 0.24, 0.04), Vector3(-1.32, 0.66, -1.8), VehicleMaterials.glass())
-	var wheel_positions: Array[Vector3] = [
-		Vector3(-1.14, -0.46, -1.45), Vector3(1.14, -0.46, -1.45),
-		Vector3(-1.14, -0.46, 1.35), Vector3(1.14, -0.46, 1.35),
-	]
-	for i in wheel_positions.size():
-		_wheel(chassis, wheel_positions[i], float(profile.get("visual_wheel_radius", 0.42)), 0.3, i < 2)
-
-
-# --- racecar: wedge nose, halo cockpit, wing, exposed wheels ---------------
-
-func _build_racecar() -> void:
-	var paint := VehicleMaterials.paint("racecar")
-	var worn := VehicleMaterials.paint_worn("racecar")
-	# main tub + tapered nose (stacked boxes stepping down toward the front)
-	_box(chassis, Vector3(1.3, 0.34, 2.3), Vector3(0, 0.02, 0.1), paint)
-	_box(chassis, Vector3(1.0, 0.24, 0.7), Vector3(0, -0.04, -1.25), worn)
-	_box(chassis, Vector3(0.6, 0.18, 0.5), Vector3(0, -0.08, -1.75), worn)
-	# side pods
-	_box(chassis, Vector3(0.34, 0.26, 1.1), Vector3(0.78, -0.06, 0.15), VehicleMaterials.dark())
-	_box(chassis, Vector3(0.34, 0.26, 1.1), Vector3(-0.78, -0.06, 0.15), VehicleMaterials.dark())
-	# engine cover + cockpit halo + canopy
-	_box(chassis, Vector3(0.7, 0.3, 1.0), Vector3(0, 0.3, 0.75), worn)
-	_sphere(chassis, 0.42, Vector3(0, 0.34, 0.12), VehicleMaterials.glass(), Vector3(0.8, 0.55, 0.9))
-	var halo := MeshInstance3D.new()
-	var torus := TorusMesh.new()
-	torus.inner_radius = 0.34
-	torus.outer_radius = 0.42
-	halo.mesh = torus
-	halo.position = Vector3(0, 0.52, 0.12)
-	halo.material_override = VehicleMaterials.dark()
-	chassis.add_child(halo)
-	# rear wing on struts
-	_box(chassis, Vector3(1.5, 0.07, 0.42), Vector3(0, 0.62, 1.2), VehicleMaterials.dark(), Vector3(-0.14, 0, 0))
-	_box(chassis, Vector3(0.08, 0.3, 0.3), Vector3(0.5, 0.44, 1.2), VehicleMaterials.metal())
-	_box(chassis, Vector3(0.08, 0.3, 0.3), Vector3(-0.5, 0.44, 1.2), VehicleMaterials.metal())
-	# twin exhausts
-	_cylinder(chassis, 0.07, 0.3, Vector3(0.26, 0.12, 1.42), VehicleMaterials.metal(), Vector3(0, 0, -1))
-	_cylinder(chassis, 0.07, 0.3, Vector3(-0.26, 0.12, 1.42), VehicleMaterials.metal(), Vector3(0, 0, -1))
-	# nose roundel + front splitter
-	_cylinder(chassis, 0.16, 0.04, Vector3(0, 0.14, -1.2), VehicleMaterials.cream(), Vector3(0, 1, 0))
-	_box(chassis, Vector3(1.1, 0.06, 0.3), Vector3(0, -0.18, -1.95), VehicleMaterials.dark())
-	var wheel_positions: Array[Vector3] = [
-		Vector3(-0.86, -0.22, -0.85), Vector3(0.86, -0.22, -0.85),
-		Vector3(-0.86, -0.22, 0.95), Vector3(0.86, -0.22, 0.95),
-	]
-	for i in wheel_positions.size():
-		_wheel(chassis, wheel_positions[i], float(profile.get("visual_wheel_radius", 0.4)), 0.26, i < 2)

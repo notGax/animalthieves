@@ -1,6 +1,6 @@
 # The Crooked Mile
 
-A 1–4 player co-op heist game built in **Godot 4.6**. Play as a crew of round slime thieves working the strip: rob Rat Mart, dodge the guards, drag your loot to the van, and reinvest the take in tools, vehicles, and production machines — then work your way up the street to bigger stores and bigger bosses.
+A 1–4 player co-op heist game built in **Godot 4.7**. Play as a crew of round slime thieves working the strip: rob Rat Mart, dodge the guards, drag your loot to the van, and reinvest the take in tools, vehicles, and production machines — then work your way up the street to bigger stores and bigger bosses.
 
 The game runs on a server-authoritative multiplayer foundation (sessions, chat, player list, synchronized state) with all heist gameplay layered on top: movement tuned for weight and momentum, tool-based thievery, drivable vehicles, form transformations, and a persistent campaign.
 
@@ -19,7 +19,7 @@ The game runs on a server-authoritative multiplayer foundation (sessions, chat, 
 ## How to Run the Project
 
 1. **Clone or download** the repository.
-2. **Open in Godot Engine** 4.6.1 or newer (Forward Plus renderer).
+2. **Open in Godot Engine** 4.7 or newer (Forward Plus renderer).
 3. **Press** <kbd>F5</kbd> or click `Run Project`.
 
 For local multiplayer testing, open `Debug > Customize Run Instances`, enable `Enable Multiple Instances`, choose the desired number of instances, and run the project.
@@ -59,7 +59,7 @@ GODOT_BIN=/path/to/godot ./run_headless_server.sh
 - Left mouse button to slap, or throw what you are carrying.
 - Right mouse button to use the equipped tool.
 - <kbd>Q</kbd> to cycle tools (grapple, water gun, slime crystal, jetpack).
-- <kbd>X</kbd> to quick-equip the slime crystal (reviving a downed teammate).
+- <kbd>X</kbd> to snap back to slime form instantly (skips the transform cooldown).
 - <kbd>B</kbd> to place bait. <kbd>H</kbd> to eat. <kbd>C</kbd> to feed a teammate.
 - <kbd>R</kbd> to transform (form cooldown applies).
 
