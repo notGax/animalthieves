@@ -5,16 +5,19 @@ extends RefCounted
 ## their own flash/wobble channels call unique() and get a fresh ShaderMaterial.
 
 const SlimeShader := preload("res://assets/characters/slime.gdshader")
+const PartShader := preload("res://assets/characters/character_part.gdshader")
 const PopShader := preload("res://assets/effects/pop.gdshader")
 
 static var _parts: Dictionary = {}
+static var _toon_parts: Dictionary = {}
+static var _toon_faces: Dictionary = {}
 static var _metals: Dictionary = {}
 static var _pops: Dictionary = {}
 static var _lits: Dictionary = {}
 static var _glass: StandardMaterial3D
 
 
-## Chunky matte toy part - the default for character bits and small props.
+## Chunky matte toy part - the default for vehicles and world props.
 static func part(color: Color) -> StandardMaterial3D:
 	if not _parts.has(color):
 		var mat := StandardMaterial3D.new()
@@ -34,6 +37,31 @@ static func unique(color: Color, wobble := 0.0) -> ShaderMaterial:
 	mat.set_shader_parameter("albedo", color)
 	mat.set_shader_parameter("wobble", wobble)
 	return mat
+
+
+## Banded toon material for character bits - mittens, ears, snouts, hats,
+## uniform pieces. Same shading family as the slime body shader, cached by
+## color so a hundred parts still cost a handful of materials. Vehicles and
+## world props stay on the plain part() PBR look.
+static func toon_part(color: Color) -> ShaderMaterial:
+	if not _toon_parts.has(color):
+		var mat := ShaderMaterial.new()
+		mat.shader = PartShader
+		mat.set_shader_parameter("albedo", color)
+		_toon_parts[color] = mat
+	return _toon_parts[color]
+
+
+## Face variant with a raised light floor: pupils, brows and mouths keep their
+## contrast when the head sits in a shadow pool instead of dissolving into it.
+static func toon_face(color: Color) -> ShaderMaterial:
+	if not _toon_faces.has(color):
+		var mat := ShaderMaterial.new()
+		mat.shader = PartShader
+		mat.set_shader_parameter("albedo", color)
+		mat.set_shader_parameter("light_floor", 0.5)
+		_toon_faces[color] = mat
+	return _toon_faces[color]
 
 
 ## Polished metal for tools, ladles, pipes and the dragon.

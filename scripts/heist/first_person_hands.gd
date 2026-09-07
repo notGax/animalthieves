@@ -28,7 +28,7 @@ var had_held: Node3D = null
 
 func _paint(instance: MeshInstance3D, lighten := 0.0) -> void:
 	painted.append([instance,lighten])
-	instance.material_override=Materials.part(skin.lightened(lighten))
+	instance.material_override=Materials.toon_part(skin.lightened(lighten))
 	# Viewmodel parts never cast shadows: part-on-part shadowing at this range
 	# is pure acne (the banded thumbs over the manhole grate), and the world
 	# shadowmap is tuned for metres, not centimetres. Receiving is kept, so
@@ -39,7 +39,7 @@ func apply_skin(skin_index: int) -> void:
 	## Repaint every hand part from the shared palette (build + skin change).
 	skin=Palette.color(Palette.skin(skin_index).body)
 	for entry in painted:
-		entry[0].material_override=Materials.part(skin.lightened(entry[1]))
+		entry[0].material_override=Materials.toon_part(skin.lightened(entry[1]))
 
 func _ready() -> void:
 	camera=get_parent()
@@ -187,15 +187,16 @@ func _process(delta: float) -> void:
 			squish+=.06+sin(clock*3.1)*.02
 		hands[i].scale=Vector3(1.0+squish,1.0-squish*.7,1.0+squish)
 
-func part(pos: Vector3,size: Vector3,color: Color) -> void:
+func part(pos: Vector3,size: Vector3,color: Color) -> MeshInstance3D:
 	var mesh := MeshInstance3D.new()
 	var box := BoxMesh.new()
 	box.size=size
 	mesh.mesh=box
 	mesh.position=pos
-	mesh.material_override=Materials.part(color)
+	mesh.material_override=Materials.toon_part(color)
 	mesh.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	tool_root.add_child(mesh)
+	return mesh
 
 func make_tool(tool: String) -> void:
 	for child in tool_root.get_children(): child.queue_free()
@@ -208,8 +209,9 @@ func make_tool(tool: String) -> void:
 				var blob := Visual.sphere(tool_root,Vector3(0,.16,-.08),Vector3(.19,.12,.28),Color("7acde8"))
 				blob.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			else:
-				part(Vector3(-.065,.12,-.3),Vector3(.035,.17,.035),Color("9aa3ab"))
-				part(Vector3(-.035,.2,-.3),Vector3(.09,.035,.035),Color("9aa3ab"))
+				# The hook mechanism stays polished metal against the toy body.
+				part(Vector3(-.065,.12,-.3),Vector3(.035,.17,.035),Color("9aa3ab")).material_override=Materials.metal(Color("9aa3ab"))
+				part(Vector3(-.035,.2,-.3),Vector3(.09,.035,.035),Color("9aa3ab")).material_override=Materials.metal(Color("9aa3ab"))
 		"crystal":
 			var crystal := Visual.sphere(tool_root,Vector3(0,.12,-.04),Vector3(.19,.35,.18),Color("b6a3da"))
 			crystal.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

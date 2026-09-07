@@ -49,6 +49,10 @@ var nose_ref: MeshInstance3D
 var boar_ears: Array = []
 var boar_tail: Array = []
 var lizard_tail: Array = []
+# Tail chain motion: the boar gets a decaying gesture kick, the lizard gets a
+# per-segment wave whose links chase the one before them.
+var tail_kick := 0.0
+var tail_wave: Array = []
 # Randomized micro-timers: nervous ticks instead of constant sine motion.
 var tongue_timer := 1.2
 var tongue_out := 0.0
@@ -67,7 +71,9 @@ static func sphere(parent: Node3D, pos: Vector3, size: Vector3, color: Color) ->
 	instance.mesh = mesh
 	instance.position = pos
 	instance.scale = size
-	instance.material_override = Materials.part(color)
+	# Character parts share the slime body's banded toon shading; vehicles and
+	# world props keep the plain matte part() look.
+	instance.material_override = Materials.toon_part(color)
 	parent.add_child(instance)
 	return instance
 
@@ -122,28 +128,30 @@ func apply_skin(skin_index: int) -> void:
 	skin = Palette.skin(skin_index)
 	if material:
 		material.set_shader_parameter("albedo", Palette.color(skin.body))
-	var body_mat := Materials.part(Palette.color(skin.body))
+	var body_mat := Materials.toon_part(Palette.color(skin.body))
 	for mitten in mittens:
 		mitten.material_override = body_mat
-	var pupil_mat := Materials.part(Palette.color(skin.pupil))
+	# Dark face details ride the raised-floor variant so they stay readable
+	# when the head swings through a shadow pool.
+	var pupil_mat := Materials.toon_face(Palette.color(skin.pupil))
 	for eye in eyes:
 		eye.material_override = pupil_mat
 	if mouth:
 		mouth.material_override = pupil_mat
-	var brow_mat := Materials.part(Palette.color(skin.brow))
+	var brow_mat := Materials.toon_face(Palette.color(skin.brow))
 	for brow in brows:
 		brow.material_override = brow_mat
-	var cheek_mat := Materials.part(Palette.color(skin.cheek))
+	var cheek_mat := Materials.toon_part(Palette.color(skin.cheek))
 	for cheek in cheeks:
 		cheek.material_override = cheek_mat
-	var outer_mat := Materials.part(Palette.color(skin.deep))
+	var outer_mat := Materials.toon_part(Palette.color(skin.deep))
 	for ear in ear_outers:
 		ear.material_override = outer_mat
-	var inner_mat := Materials.part(Palette.color(skin.ear))
+	var inner_mat := Materials.toon_part(Palette.color(skin.ear))
 	for ear in ear_inners:
 		ear.material_override = inner_mat
 	if tail:
-		tail.material_override = Materials.part(Palette.color(skin.ear).darkened(.08))
+		tail.material_override = Materials.toon_part(Palette.color(skin.ear).darkened(.08))
 
 func _process(delta: float) -> void:
 	clock += delta
@@ -173,7 +181,9 @@ func _process(delta: float) -> void:
 	var gesturing: bool = float(data.get("gesture_time",0)) > 0
 	if gesturing and not was_gesturing:
 		excited=maxf(excited,.4)
+		tail_kick=1.0
 	was_gesturing=gesturing
+	tail_kick=move_toward(tail_kick,0.0,delta*2.5)
 	effort=lerpf(effort,1.0 if (gesturing or held_name!="") else 0.0,1-exp(-step*8))
 	carry_sag=lerpf(carry_sag,1.0 if held_name!="" else 0.0,1-exp(-step*7))
 	excited=move_toward(excited,0.0,delta*1.1)
@@ -296,11 +306,29 @@ func _process(delta: float) -> void:
 	elif form == "boar":
 		for i in range(boar_ears.size()):
 			boar_ears[i].rotation.z = (.5 if i == 0 else -.5)+flick_rot*.5
+		# Springy curl: a lazy idle wag that quickens with speed, a random
+		# twitch from the ear-flick timer, and a whip on gestures. The tip
+		# links answer harder than the root, so the curl reads as springy.
+		var wag := sin(clock*(4.0+minf(moving,8.0)*.7))*(.06+minf(moving,8.0)*.013)
 		for i in range(boar_tail.size()):
-			boar_tail[i].rotation.x = sin(clock*4.0+i)*.2
+			var depth := float(i)/maxf(1.0,boar_tail.size()-1)
+			boar_tail[i].rotation.z = wag*(.35+depth*.65)+flick_rot*.2*depth
+			boar_tail[i].rotation.x = tail_kick*(.7-depth*.25)+wag*.3*depth
 	elif form == "lizard":
+		# Follow-through chain: segment zero chases the turn signal, every
+		# later segment chases the one before it, so turns and speed ripple
+		# down the tail instead of the whole thing moving at once.
+		if tail_wave.is_empty():
+			tail_wave.resize(lizard_tail.size())
+			tail_wave.fill(0.0)
+		var driver := clampf(turn_lag*1.4,-.6,.6)+sin(clock*2.2)*.05
+		if moving > .3:
+			driver += sin(clock*6.0)*.09*minf(moving/6.0,1.0)
+		tail_wave[0]=lerpf(tail_wave[0],driver,1-exp(-step*10.0))
+		for i in range(1,lizard_tail.size()):
+			tail_wave[i]=lerpf(tail_wave[i],tail_wave[i-1],1-exp(-step*(11.0-i*1.2)))
 		for i in range(lizard_tail.size()):
-			lizard_tail[i].rotation.y = sin(clock*2.2-i*.7)*.08
+			lizard_tail[i].rotation.y = tail_wave[i]
 	var target := Vector3.ZERO
 	var best := 10.0
 	if world:

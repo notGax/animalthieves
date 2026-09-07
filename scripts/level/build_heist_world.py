@@ -187,14 +187,17 @@ class Scene:
         return self.node(name, 'MeshInstance3D', parent,
             'position = %s\nmesh = %s\nmaterial_override = %s' % (vec(pos), mesh, self.poster_mats[kind])
             + ('\nrotation_degrees = Vector3(0, %s, 0)' % yaw if yaw else ''))
-    def light(self, parent, name, pos, color='ffb347', energy=2, reach=12, spot=0):
+    def light(self, parent, name, pos, color='ffb347', energy=2, reach=12, spot=0, shadow=False):
         rgb = tuple(int(resolve(color)[i:i+2],16)/255 for i in (0,2,4))
+        # Hero lights only: shadow maps are expensive, so a handful of focal
+        # pools get real shadows that ground characters against the floor.
+        extra = '\nshadow_enabled = true' if shadow else ''
         if spot:
             # Focal pool: a downward cone for checkout counters, pedestals and
             # other hero zones that must pop against the dimmer general wash.
-            self.node(name, 'SpotLight3D', parent, 'position = %s\nrotation_degrees = Vector3(-90, 0, 0)\nlight_color = Color(%s, 1)\nlight_energy = %s\nspot_range = %s\nspot_angle = %s\nspot_attenuation = 1.3\nlight_indirect_energy = 1.1' % (vec(pos), ','.join(map(str,rgb)), energy, reach, spot))
+            self.node(name, 'SpotLight3D', parent, 'position = %s\nrotation_degrees = Vector3(-90, 0, 0)\nlight_color = Color(%s, 1)\nlight_energy = %s\nspot_range = %s\nspot_angle = %s\nspot_attenuation = 1.3\nlight_indirect_energy = 1.1%s' % (vec(pos), ','.join(map(str,rgb)), energy, reach, spot, extra))
             return
-        self.node(name, 'OmniLight3D', parent, 'position = %s\nlight_color = Color(%s, 1)\nlight_energy = %s\nomni_range = %s\nomni_attenuation = 1.4\nlight_indirect_energy = 1.2' % (vec(pos), ','.join(map(str,rgb)), energy, reach))
+        self.node(name, 'OmniLight3D', parent, 'position = %s\nlight_color = Color(%s, 1)\nlight_energy = %s\nomni_range = %s\nomni_attenuation = 1.4\nlight_indirect_energy = 1.2%s' % (vec(pos), ','.join(map(str,rgb)), energy, reach, extra))
     def save(self, path, ext=''):
         ext += '[ext_resource type="Shader" path="res://assets/environment/heist/surfaces.gdshader" id="surface"]\n[ext_resource type="Texture2D" path="res://assets/environment/heist/painted_surfaces.png" id="atlas"]\n'
         (ROOT/path).write_text('[gd_scene format=3]\n\n' + ext + '\n' + '\n'.join(self.resources+self.nodes), encoding='utf-8')
@@ -416,7 +419,7 @@ for z in (-30,-42,-55):
         s.box(store,'Tube%s%s'%(x,z),(x,5.4,z),(3,.1,.25),'dce9b0',False,True)
         s.light(store,'ShopLight%s%s'%(x,z),(x,4.9,z),'amber_light',1.5 if z>-50 else 1.0,11 if z>-50 else 9)
 # Focal pools: checkout, cheese display, cellar hatch and the recipe vault.
-s.light(store,'CheckoutSpot',(11,4.3,-30),'amber_hot',3.4,8,spot=46)
+s.light(store,'CheckoutSpot',(11,4.3,-30),'amber_hot',3.4,8,spot=46,shadow=True)
 s.light(store,'CheeseSpot',(-5,3.3,-24.5),'amber_hot',2.4,5,spot=38)
 s.light(store,'CellarSpot',(11,4.3,-55),'turquoise_light',2.0,5,spot=36)
 s.light(store,'RecipeSpot',(7,4.4,-74),'cheese_yellow',2.6,6,spot=40)
@@ -460,7 +463,7 @@ s.box(recipe,'Recipe',(7,1.55,-74),(1,.12,.8),'d9e792',False,True)
 s.text(recipe,'RecipeText',(7,2.7,-74),'ROTTEN CHEESE RECIPE\nDEFEAT THE CHEF TO CLAIM',22,'d9eda1')
 interact('Recipe',(7,1,-72.5),'Inspect the chef recipe vault')
 for x in (-11,11):
-    s.light(store,'ArenaLight'+str(x),(x,5,-71),'ember',2.6,18)
+    s.light(store,'ArenaLight'+str(x),(x,5,-71),'ember',2.6,18,shadow=(x==-11))
     for z in (-66,-77):
         barrel(store,'ArenaBarrel%s%s'%(x,z),(x,.8,z))
 
@@ -529,7 +532,7 @@ for i,x in enumerate((-9,-2,5)):
 for i in range(6):
     barrel(cellar,'Reserve'+str(i),(-11+i*2,-11.2,-43))
 for x in (-8,8):
-    s.light(cellar,'CellarLight'+str(x),(x,-7,-49),'ember',2.6,17)
+    s.light(cellar,'CellarLight'+str(x),(x,-7,-49),'ember',2.6,17,shadow=(x==8))
 s.text(cellar,'SabotageStaging',(0,-8.5,-39.4),'TURN THE THREE VALVES TO WEAKEN THE CHEF',20,'c6b38b',180)
 
 # Repair patches, brick courses, exterior clutter, and workshop furnishings.

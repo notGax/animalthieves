@@ -84,6 +84,27 @@ func run() -> void:
 	level.get_node("PlayersContainer").add_child(player)
 	world.ensure_player(1)
 	world._stock_store()
+	check(load("res://assets/characters/character_part.gdshader") is Shader,"character part shader loads")
+	var mats: RefCounted=load("res://scripts/visuals/character_materials.gd")
+	var shared: ShaderMaterial=mats.toon_part(Color.RED)
+	check(shared==mats.toon_part(Color.RED) and shared.shader.resource_path.ends_with("character_part.gdshader"),"toon parts cache one material per color on the part shader")
+	check(mats.toon_face(Color.RED)!=shared,"face parts get their own raised-floor material")
+	var tail_probe := Node3D.new()
+	root.add_child(tail_probe)
+	var form_bits: Dictionary=load("res://scripts/heist/form_visuals.gd").build(tail_probe,{})
+	check(form_bits.boar_tail.size()==4 and form_bits.lizard_tail.size()==6 and not (form_bits.boar_tail[0] is MeshInstance3D),"boar and lizard tails build as pivot chains")
+	tail_probe.queue_free()
+	check(player._spring_arm_offset._noise != null,"camera boots with its cached shake noise")
+	player._spring_arm_offset._trauma=1.0
+	player._spring_arm_offset._apply_feedback(.016)
+	check(player._spring_arm_offset._trauma<1.0,"camera trauma decays instead of latching")
+	var motion: Node3D=world.get_node_or_null("StoreMotion")
+	var paired: int=0
+	if motion:
+		for entry in motion.fixtures:
+			if entry.light != null:
+				paired+=1
+	check(motion != null and motion.fixtures.size()==4 and paired>=3,"store flicker fixtures pair with the real lights")
 	for enemy in world.enemies: enemy.set_physics_process(false)
 	await create_timer(.3).timeout
 	check(level.get_node("Environment/ItemContainer").get_child_count()==62,"four stores have 62 physics merchandise objects")
@@ -140,6 +161,11 @@ func run() -> void:
 	var before_bank: float=world.campaign.bank
 	world._physics_process(1.0)
 	check(world.campaign.bank>before_bank,"installed machine generates active-session income")
+	world.update_machines()
+	check(world.machine_visuals[0].visible,"a purchased machine shows its production visual")
+	var spin: float=world.machine_visuals[0].get_node("Output").rotation.y
+	world._animate_machines(.25)
+	check(world.machine_visuals[0].get_node("Output").rotation.y>spin,"machine output spins per frame from local time")
 	player.global_position=Vector3(5,-11,25)
 	world.interact(player,"CollectIncome")
 	check(world.campaign.bank<1,"income terminal transfers whole dollars to crew funds")
@@ -186,8 +212,10 @@ func run() -> void:
 	check(world.player_state["1"].form=="slime","120-second species-change cooldown is enforced")
 	world.campaign.cash=999
 	player.global_position=Vector3(-10,-11,32)
+	var tool_before: String=world.player_state["1"].tool
 	world.shop_action(player,"buy:cart")
 	check(world.campaign.gear.has("cart"),"shopping cart can be purchased")
+	check(world.player_state["1"].tool==tool_before,"buying a vehicle leaves everyone's tool alone")
 	player.global_position=world.vehicles.cart.node.global_position
 	world.interact(player,"")
 	check(world.vehicles.cart.rider==1,"player can board purchased cart")
@@ -196,6 +224,19 @@ func run() -> void:
 	check(world.vehicles.cart.node.linear_velocity.z<0,"server drives the vehicle")
 	world.interact(player,"")
 	check(world.vehicles.cart.rider==0,"player can dismount")
+	# Q cycles owned ACTIVE TOOLS only: vehicles stay parked, unknown tools
+	# normalize, and the cycle wraps inside the owned set.
+	world.action_times.clear()
+	world.player_state["1"].tool="water"
+	world.request_action("cycle","",Vector3.FORWARD)
+	check(world.player_state["1"].tool=="grapple","Q wraps from the last owned tool back to the first")
+	world.action_times.clear()
+	world.request_action("cycle","",Vector3.FORWARD)
+	check(world.player_state["1"].tool=="crystal","Q advances to the next owned active tool")
+	world.action_times.clear()
+	world.player_state["1"].tool="cart"
+	world.request_action("cycle","",Vector3.FORWARD)
+	check(world.player_state["1"].tool in world.ACTIVE_TOOLS and world.campaign.gear.has(world.player_state["1"].tool),"a stale vehicle tool normalizes into the owned active-tool cycle")
 	var packet := var_to_bytes(world.snapshot()).compress(FileAccess.COMPRESSION_DEFLATE)
 	check(packet.size()<1300,"compressed state stays within one network packet")
 	var restored = bytes_to_var(packet.decompress_dynamic(1048576,FileAccess.COMPRESSION_DEFLATE))
@@ -211,6 +252,24 @@ func run() -> void:
 	for point in [Vector3(0,2,-20.5),Vector3(0,2,-24),Vector3(11,2,-50),Vector3(0,-10,25),Vector3(10,-10,-42),Vector3(45,2,-23),Vector3(61,2,23),Vector3(74,2,-25)]:
 		var query := PhysicsRayQueryParameters3D.create(point,point+Vector3.DOWN*3,2)
 		check(not world.get_world_3d().direct_space_state.intersect_ray(query).is_empty(),"walkable floor "+str(point))
+	# Guard labels: no permanent floating readout, brief show after damage.
+	world.enemies[0].title_clock=0.0
+	world.enemies[0]._process(.016)
+	check(not world.enemies[0].title.visible,"guards carry no permanent floating readout")
+	world.enemies[0].title_clock=2.5
+	var cam: Camera3D=world.get_viewport().get_camera_3d()
+	if cam:
+		world.enemies[0].global_position=cam.global_position+Vector3(0,0,2)
+	world.enemies[0]._process(.016)
+	check(world.enemies[0].title.visible,"a recently damaged guard shows its label briefly")
+	if "--server" not in args:
+		# The controls legend belongs to the session, not the menu, and every
+		# fresh session restarts it.
+		world.controls_clock=7.0
+		world._process(.2)
+		check(world.controls_clock==7.0,"controls legend does not tick while no session is live")
+		world._reset()
+		check(world.controls_clock==14.0,"a fresh session restarts the controls legend clock")
 	if "--server" in args:
 		player.queue_free()
 		world.player_state.erase("1")

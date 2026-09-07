@@ -26,11 +26,22 @@ var _pitch := 0.0
 # never constant, and capped: dip .25 m, offset .12 m, roll .02 rad.
 var _fov := 0.0
 var _fov_kick := 0.0
-var _shake := 0.0
 var _dip := 0.0
 var _dip_velocity := 0.0
 var _was_on_floor := true
 var _fall_speed := 0.0
+# Trauma shake: events pour into one 0..1 channel, the offset runs as its
+# square, and a cached noise field drives the motion. Boss charges steer the
+# noise toward a slow rumble; slaps and landings give short sharp kicks.
+var _trauma := 0.0
+var _rumble := 0.0
+var _bias := 0.0
+var _noise_time := 0.0
+var _last_gesture := 0.0
+var _boss_states: Dictionary = {}
+var _camera_base_pos := Vector3.ZERO
+var _camera_base_rot := Vector3.ZERO
+var _noise: FastNoiseLite
 
 @onready var _camera: Camera3D = _spring_arm.get_node_or_null("Camera3D") as Camera3D
 
@@ -39,6 +50,15 @@ func _ready() -> void:
 	_yaw = rotation.y
 	_pitch = _spring_arm.rotation.x if _spring_arm else 0.0
 	_fov = first_person_fov if is_first_person else third_person_fov
+	_noise = FastNoiseLite.new()
+	_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	_noise.frequency = 1.0
+	_noise.seed = 7
+	if _camera:
+		# The shake channels write the camera transform absolutely every
+		# frame from this captured base, so feedback can never drift.
+		_camera_base_pos = _camera.position
+		_camera_base_rot = _camera.rotation
 	_apply_axis_lock()
 	_apply_perspective()
 
@@ -75,26 +95,48 @@ func _apply_feedback(delta: float) -> void:
 	_fov = lerpf(_fov, (first_person_fov if is_first_person else third_person_fov) + boost + _fov_kick, blend)
 	_camera.fov = _fov
 
-	# Shake: hurt/grapple/jetpack impulses and boss charges, capped offset+roll.
-	var impulse := clampf(ext.length() * .05, 0.0, 1.0)
-	_shake = maxf(_shake * exp(-delta * 5.0), impulse)
+	# Trauma shake. Impulses (grapple yank, jetpack, knockback) feed the
+	# channel fast; a slap gesture kicks it lightly; hard landings add a
+	# thump on top of the dip spring. Boss charges hold a slow rumble while
+	# they close in, and a charge that ends stunned - the wall impact - is
+	# the strongest kick the camera can give.
+	var impact := clampf(ext.length() * .05, 0.0, 1.0)
+	if impact > 0.0:
+		_trauma = minf(1.0, _trauma + impact * delta * 12.0)
+	var gesture_now: float = float(state.get("gesture_time", 0.0))
+	if gesture_now > 0.0 and _last_gesture <= 0.0 and str(state.get("gesture", "")) == "attack":
+		_trauma = minf(1.0, _trauma + .16)
+	_last_gesture = gesture_now
+	_bias = maxf(_bias * exp(-delta * 6.0), clampf(ext.y * .03, 0.0, .35))
+	var rumble := 0.0
 	if world:
 		for enemy in world.enemies:
-			if enemy.boss and enemy.hp > 0.0 and enemy.state == "CHARGE" \
-					and enemy.global_position.distance_to(player.global_position) < 20.0:
-				_shake = maxf(_shake, .5)
-	var clock := Time.get_ticks_msec() * .001
-	var noise := Vector3(
-		sin(clock * 47.3) + sin(clock * 23.7) * .5,
-		sin(clock * 53.1) + sin(clock * 37.9) * .5,
-		sin(clock * 43.7))
-	_camera.position = Vector3(noise.x, noise.y, 0.0) * (_shake * .12) + Vector3(0.0, _dip, 0.0)
-	_camera.rotation.z = noise.z * _shake * .02
+			var distance: float = enemy.global_position.distance_to(player.global_position)
+			if enemy.boss:
+				if enemy.hp > 0.0 and enemy.state == "CHARGE" and distance < 20.0:
+					rumble = maxf(rumble, 1.0 - distance / 20.0)
+				var prev: String = _boss_states.get(str(enemy.name), "")
+				if prev == "CHARGE" and enemy.state == "STUNNED" and distance < 25.0:
+					_trauma = minf(1.0, _trauma + .85)
+					_dip_velocity -= .5
+				_boss_states[str(enemy.name)] = enemy.state
+	_rumble = lerpf(_rumble, rumble, 1.0 - exp(-delta * 6.0))
+	_trauma = maxf(_trauma * exp(-delta * 2.6), _rumble * .75)
+	_noise_time += delta * lerpf(26.0, 9.0, clampf(_rumble, 0.0, 1.0))
+	var amp := _trauma * _trauma
+	var nx := _noise.get_noise_2d(_noise_time, 0.0)
+	var ny := _noise.get_noise_2d(_noise_time, 31.7)
+	var nroll := _noise.get_noise_2d(_noise_time, 71.3)
+	_camera.position = _camera_base_pos \
+		+ Vector3(nx * .12, ny * .12 + _bias * .05, 0.0) * amp \
+		+ Vector3(0.0, _dip, 0.0)
+	_camera.rotation = _camera_base_rot + Vector3(0.0, 0.0, nroll * amp * .025)
 
 	# Landing dip: spring the camera down on hard landings, then rebound.
 	var grounded := player.is_on_floor()
 	if grounded and not _was_on_floor and _fall_speed > 4.0:
 		_dip_velocity -= clampf(_fall_speed * .035, .2, .9)
+		_trauma = minf(1.0, _trauma + clampf(_fall_speed * .025, .05, .3))
 	_dip_velocity += (-_dip * 140.0 - _dip_velocity * 11.0) * delta
 	_dip = clampf(_dip + _dip_velocity * delta, -.25, 0.0)
 	if not grounded:
@@ -124,7 +166,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	_yaw = wrapf(_yaw - event.relative.x * MOUSE_SENSIBILITY, -PI, PI)
-	_pitch = clampf(_pitch - event.relative.y * MOUSE_SENSIBILITY, -PI / 4.0, PI / 24.0)
+	# A generous symmetric pitch range: look almost straight up or down, but
+	# never past vertical where the rig would flip.
+	_pitch = clampf(_pitch - event.relative.y * MOUSE_SENSIBILITY, deg_to_rad(-70.0), deg_to_rad(70.0))
 	_apply_axis_lock()
 
 
@@ -133,7 +177,7 @@ func _apply_axis_lock() -> void:
 	if _spring_arm:
 		_spring_arm.rotation = Vector3(_pitch, 0.0, 0.0)
 	if _camera:
-		_camera.rotation = Vector3.ZERO
+		_camera.rotation = _camera_base_rot
 
 
 func _apply_perspective() -> void:

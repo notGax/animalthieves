@@ -21,6 +21,7 @@ var path: PackedVector3Array = []
 var charge_dir := Vector3.ZERO
 var model: Node3D
 var title: Label3D
+var title_clock := 0.0
 var tell: MeshInstance3D
 var aura: MeshInstance3D
 var hat: Node3D
@@ -206,6 +207,9 @@ func build_guard(tier: int, scale_factor: float) -> void:
 	for x in [-.264,.264]:
 		var white := Visual.sphere(head,Vector3(x,.1,-.54),Vector3(.26,.28,.13),cream)
 		var pupil := Visual.sphere(head,Vector3(x,.1,-.62),Vector3(.12,.17,.08),Palette.color(skin.pupil))
+		# Dark pupils ride the raised-light-floor face material so the eyes
+		# keep their dot even when the guard stands in a shadow pool.
+		pupil.material_override = Materials.toon_face(Palette.color(skin.pupil))
 		if x < 0.0:
 			eye_l = white
 			eye_base_l = white.scale
@@ -312,6 +316,7 @@ func build_chef() -> void:
 	for x in [-.4,.4]:
 		var white := Visual.sphere(head,Vector3(x*.55,.12,-.56),Vector3(.24,.26,.12),cream)
 		var pupil := Visual.sphere(head,Vector3(x*.55,.12,-.64),Vector3(.11,.16,.07),Palette.color("1b2b33"))
+		pupil.material_override = Materials.toon_face(Palette.color("1b2b33"))
 		if x < 0.0:
 			eye_l = white
 			eye_base_l = white.scale
@@ -352,7 +357,7 @@ func build_chef() -> void:
 	toque_mesh.radial_segments=12
 	toque.mesh=toque_mesh
 	toque.position=Vector3(0,3.32,0)
-	toque.material_override=Materials.part(Palette.color(skin.hat))
+	toque.material_override=Materials.toon_part(Palette.color(skin.hat))
 	hat.add_child(toque)
 	Visual.sphere(hat,Vector3(0,3.98,0),Vector3(.9,.42,.84),Palette.color(skin.hat))
 	Visual.sphere(hat,Vector3(0,2.74,0),Vector3(.88,.22,.82),Palette.color(skin.hat_band))
@@ -385,9 +390,12 @@ func _process(delta: float) -> void:
 		return
 	anim_time += delta
 	var names := ["THE BIG CHEESE","FOREMAN TUSK","MADAM MAGPIE","MECHA DRAGON"]
-	# Boss names live in the HUD boss bar; floating text on any guard stays
-	# name-and-hp only so the field never grows debug readouts.
-	title.visible = not boss
+	# Boss names live in the HUD boss bar. Regular guards carry no permanent
+	# floating readout: the label only pops up for a few seconds after the
+	# guard takes damage, and only while the camera is close enough to read.
+	title_clock = maxf(0.0,title_clock-delta)
+	var cam := get_viewport().get_camera_3d()
+	title.visible = not boss and title_clock > 0.0 and (cam == null or global_position.distance_to(cam.global_position) < 14.0)
 	title.text = (names[tier] if boss else ["Rat security","Boar security","Magpie security","Lizard security"][tier]) + "  %d/%d" % [ceili(hp),int(max_hp)]
 	title.modulate = Color("ffbb81") if boss else Color("d8dda9")
 	tell.visible = state in ["WIND UP","CHARGE","FIRE BREATH"]
@@ -404,6 +412,7 @@ func _process(delta: float) -> void:
 		last_state = state
 	if hp < last_hp - .5:
 		squash_vel += Vector3(2.4,-2.8,2.4)  # hit flinch
+		title_clock = 2.5
 	if hp != last_hp:
 		last_hp = hp
 	# Motion is read from real displacement, so remote clients animate exactly

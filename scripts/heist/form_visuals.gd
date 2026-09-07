@@ -17,7 +17,7 @@ static func sphere(parent: Node3D, pos: Vector3, size: Vector3, color: Color) ->
 	instance.mesh = mesh
 	instance.position = pos
 	instance.scale = size
-	instance.material_override = Materials.part(color)
+	instance.material_override = Materials.toon_part(color)
 	parent.add_child(instance)
 	return instance
 
@@ -87,12 +87,24 @@ static func _boar(parent: Node3D) -> Dictionary:
 		var ear := sphere(parent, Vector3(side * .52, 1.4, -.06), Vector3(.2, .15, .08), brown)
 		ear.rotation.z = side * -.5
 		ears.append(ear)
-	# Short curled pig tail sitting high on the rump.
+	# Short curled pig tail sitting high on the rump: four segments on a pivot
+	# chain, so the animation code whips the whole curl from the root and the
+	# deeper links swing a beat later - a tail that actually has follow-through.
 	var tail: Array = []
-	var curl := [Vector3(0, .95, .58), Vector3(0, 1.05, .62), Vector3(0, 1.1, .52), Vector3(0, 1.02, .48)]
+	var curl := [Vector3.ZERO, Vector3(0, .1, .04), Vector3(0, .05, -.1), Vector3(0, -.08, -.04)]
 	var widths := [.07, .06, .05, .045]
-	for i in range(curl.size()):
-		tail.append(sphere(parent, curl[i], Vector3(widths[i], widths[i], widths[i]), brown))
+	var anchor := Node3D.new()
+	anchor.position = Vector3(0, .95, .58)
+	parent.add_child(anchor)
+	var link := anchor
+	for i in range(4):
+		tail.append(link)
+		sphere(link, Vector3.ZERO, Vector3(widths[i], widths[i], widths[i]), brown)
+		if i < 3:
+			var next := Node3D.new()
+			next.position = curl[i + 1]
+			link.add_child(next)
+			link = next
 	return {"ears": ears, "tail": tail}
 
 
@@ -135,9 +147,21 @@ static func _lizard(parent: Node3D) -> Dictionary:
 	for x in [-.04, .04]:
 		var fork := sphere(tongue, Vector3(x, -.02, -.16), Vector3(.04, .04, .3), Color("ff6b8f"))
 		fork.rotation.x = .25
-	# Long tapering reptile tail dragging behind, segmented for lag motion.
+	# Long tapering reptile tail dragging behind: six segments on a pivot
+	# chain running back and slightly down, so lateral swings ripple from the
+	# root out to the tip instead of every ring twitching in place.
 	var tail: Array = []
+	var anchor := Node3D.new()
+	anchor.position = Vector3(0, .5, .62)
+	parent.add_child(anchor)
+	var link := anchor
 	for i in range(6):
 		var width := .15 - i * .018
-		tail.append(sphere(parent, Vector3(0, .5 - i * .03, .62 + i * .26), Vector3(width, width, width * 1.4), green))
+		tail.append(link)
+		sphere(link, Vector3.ZERO, Vector3(width, width, width * 1.4), green)
+		if i < 5:
+			var next := Node3D.new()
+			next.position = Vector3(0, -.03, .26)
+			link.add_child(next)
+			link = next
 	return {"tongue": tongue, "tail": tail}

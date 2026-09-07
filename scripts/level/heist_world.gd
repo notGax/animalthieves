@@ -9,6 +9,11 @@ const GOODS := ["rotten_cheese","moonshine","canned_food","stolen_goods"]
 const SPECIES := ["rat","boar","bird","lizard"]
 const PRICES := {"grapple":80,"water":90,"crystal":65,"jetpack":180,"cart":100,"truck":260,"racecar":200}
 const TOOL_NAMES := {"grapple":"Grappling hook","water":"Water gun","crystal":"Slime crystal","jetpack":"Jetpack","cart":"Shopping cart","truck":"Mini truck","racecar":"Racecar"}
+# Q cycles the crew's ACTIVE TOOLS only. Vehicles are parked gear you drive
+# from the driver's seat - buying or owning one must never change the
+# equipped tool. campaign.gear keeps storing both (old saves stay valid).
+const ACTIVE_TOOLS := ["grapple","water","crystal","jetpack"]
+const VEHICLE_KINDS := ["cart","truck","racecar"]
 const SAVE_FILE := "user://crooked_mile_campaign_v2.json"
 @export var persistence_enabled := true
 @export var campaign_path := SAVE_FILE
@@ -137,6 +142,7 @@ func _reset() -> void:
 		vehicles[kind].node.position=vehicles[kind].home
 	fresh_campaign()
 	apply_progress(false)
+	controls_clock=14.0
 
 func _peer_left(id: int) -> void:
 	release_cargo(id,Vector3.ZERO)
@@ -151,18 +157,33 @@ func _on_player_connected(id: int, _info: Dictionary) -> void:
 			load_campaign()
 			session_active=true
 			apply_progress(int(campaign.recipes[0])>0)
+			controls_clock=14.0
 		ensure_player(id)
 		call_deferred("_stock_store")
 		call_deferred("broadcast_state")
 	else:
 		session_active=true
+		controls_clock=14.0
 		request_progress.rpc_id(1)
 
 func ensure_player(id: int) -> Dictionary:
 	var key := str(id)
 	if not player_state.has(key):
 		player_state[key]={"hp":100.0,"form":"slime","form_cooldown":0.0,"speed_buff":0.0,"strength_buff":0.0,"hurt_cooldown":0.0,"down_time":0.0,"tool":"grapple","fuel":100.0,"vehicle":"","grapple_cd":0.0,"held":"","carry_direction":Vector3.FORWARD,"last_form":"","gesture":"idle","gesture_time":0.0}
+	# Snap stale tools back to an owned active tool: old saves or snapshots
+	# can carry a vehicle, and Q can never equip one.
+	var data: Dictionary = player_state[key]
+	if data.tool not in ACTIVE_TOOLS or data.tool not in campaign.gear:
+		data.tool=normalize_tool(str(data.tool))
 	return player_state[key]
+
+
+## First owned active tool that isn't the given one, or the first owned at all.
+func normalize_tool(tool: String) -> String:
+	for kind in ACTIVE_TOOLS:
+		if kind in campaign.gear and kind!=tool:
+			return kind
+	return "grapple"
 
 func live_players() -> Array:
 	var found: Array = []
@@ -410,9 +431,12 @@ func _process(delta: float) -> void:
 	# be a dead panel covering the store signage.
 	toast_frame.visible=active and toast_clock>0
 	toast_clock-=delta
-	controls_clock=maxf(0.0,controls_clock-delta)
+	_animate_machines(delta)
 	if not active:
 		return
+	# The controls legend belongs to the heist, not the menu: the clock only
+	# runs while a session is live, and every fresh session restarts it.
+	controls_clock=maxf(0.0,controls_clock-delta)
 	var player := local_player()
 	if not player:
 		return
@@ -608,8 +632,16 @@ func request_action(action: String,argument: String,direction: Vector3) -> void:
 		"interact": interact(player,argument)
 		"shop": shop_action(player,argument)
 		"cycle":
-			var index: int=campaign.gear.find(data.tool)
-			data.tool=campaign.gear[(index+1)%campaign.gear.size()]
+			# Q only ever lands on an owned ACTIVE TOOL. Vehicles stay parked
+			# until someone sits down, and an unknown tool falls back to the
+			# first owned one.
+			var owned: Array=campaign.gear.filter(func(kind): return kind in ACTIVE_TOOLS)
+			if owned.is_empty():
+				owned=["grapple"]
+			if data.tool in owned:
+				data.tool=owned[(owned.find(data.tool)+1)%owned.size()]
+			else:
+				data.tool=owned[0]
 		"bait":
 			if consume(player,"rotten_cheese"):
 				var pos := player.global_position+Vector3(direction.x,0,direction.z)*3
@@ -1024,8 +1056,12 @@ func shop_action(player: CharacterBody3D,action: String) -> void:
 		campaign.cash-=int(PRICES[kind])
 		if kind not in campaign.gear: campaign.gear.append(kind)
 		if kind=="crystal": campaign.crystals+=1
-		for key in player_state:
-			player_state[key].tool=kind
+		# Buying an active tool equips it for the buyer alone. Vehicles change
+		# nobody's tool - they sit in the fleet until someone drives them.
+		if kind in ACTIVE_TOOLS:
+			var key := str(player.name)
+			if player_state.has(key):
+				player_state[key].tool=kind
 		play_sound.rpc("cash")
 	elif action=="machine":
 		var price: int=150*campaign.machines.size()
@@ -1375,10 +1411,21 @@ func update_machines() -> void:
 			var recipe := int(campaign.machines[i])
 			var level := int(campaign.recipes[recipe])
 			machine_visuals[i].scale=Vector3.ONE*(1.0+minf(.8,level*.12))
-			machine_visuals[i].get_node("Output").rotation.y=Time.get_ticks_msec()*.001*(1+level)
 	var machine := get_node_or_null("Hideout/StarterMachine") as Node3D
 	if machine:
 		machine.scale=Vector3.ONE*(1.0+minf(1.0,int(campaign.recipes[0])*.12))
+
+
+## Local spin for the production machines, run every frame from each peer's
+## own clock: the networked state only carries installed/recipe/level, so the
+## output wheel glides between snapshots instead of freezing and jumping.
+func _animate_machines(delta: float) -> void:
+	for i in machine_visuals.size():
+		if i>=campaign.machines.size() or int(campaign.machines[i])<0:
+			continue
+		var recipe := int(campaign.machines[i])
+		var level := int(campaign.recipes[recipe]) if recipe<campaign.recipes.size() else 0
+		machine_visuals[i].get_node("Output").rotation.y+=delta*(1.0+level)
 
 @rpc("authority","call_local","reliable")
 func notice(message: String) -> void:
