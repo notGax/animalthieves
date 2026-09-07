@@ -4,9 +4,9 @@ uniform sampler2D atlas : source_color, filter_linear_mipmap_anisotropic, repeat
 uniform int surface_kind = 0;
 uniform float tile_size = 4.0;
 uniform vec4 tint : source_color = vec4(1.0);
-uniform float saturation = 1.18;
+uniform float saturation = 1.08;
 uniform float value_lift = 0.03;
-uniform float rim_strength = 0.22;
+uniform float rim_strength = 0.18;
 uniform float wall_gradient = 0.55;
 uniform float grime_strength = 0.14;
 uniform float roughness_bias = 0.0;

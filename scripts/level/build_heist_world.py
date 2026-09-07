@@ -170,8 +170,13 @@ class Scene:
         return self.node(name, 'MeshInstance3D', parent,
             'position = %s\nmesh = %s\nmaterial_override = %s' % (vec(pos), mesh, self.poster_mats[kind])
             + ('\nrotation_degrees = Vector3(0, %s, 0)' % yaw if yaw else ''))
-    def light(self, parent, name, pos, color='ffb347', energy=2, reach=12):
+    def light(self, parent, name, pos, color='ffb347', energy=2, reach=12, spot=0):
         rgb = tuple(int(resolve(color)[i:i+2],16)/255 for i in (0,2,4))
+        if spot:
+            # Focal pool: a downward cone for checkout counters, pedestals and
+            # other hero zones that must pop against the dimmer general wash.
+            self.node(name, 'SpotLight3D', parent, 'position = %s\nrotation_degrees = Vector3(-90, 0, 0)\nlight_color = Color(%s, 1)\nlight_energy = %s\nspot_range = %s\nspot_angle = %s\nspot_attenuation = 1.3\nlight_indirect_energy = 1.1' % (vec(pos), ','.join(map(str,rgb)), energy, reach, spot))
+            return
         self.node(name, 'OmniLight3D', parent, 'position = %s\nlight_color = Color(%s, 1)\nlight_energy = %s\nomni_range = %s\nomni_attenuation = 1.4\nlight_indirect_energy = 1.2' % (vec(pos), ','.join(map(str,rgb)), energy, reach))
     def save(self, path, ext=''):
         ext += '[ext_resource type="Shader" path="res://assets/environment/heist/surfaces.gdshader" id="surface"]\n[ext_resource type="Texture2D" path="res://assets/environment/heist/painted_surfaces.png" id="atlas"]\n'
@@ -330,12 +335,54 @@ s.box(store,'RegisterScreen',(11,2.7,-26.56),(.7,.35,.06),'bde899',False,True)
 for z in (-31,-33):
     stock((11,2.3,z),'stolen_goods')
 sign(store,'CounterSign',(14,4.4,-36),5,'NO REFUNDS','eab180',25)
+# Counter front dressing: the solid slab below is collision-final, so the
+# segmentation is all garnish - crooked wood bays, a kick board, a top rail
+# and two dividing posts that split the long run into three stations.
+for ci,cz in enumerate((-28.2,-30.2,-32.2,-34.0)):
+    s.box(store,'CounterBay'+str(ci),(9.42,1.05,cz),(.08,1.72,1.75),'wood_warm' if ci%2 else 'plum_panel',False,rotation=(0,0,2 if ci==1 else -1.5))
+s.box(store,'CounterKick',(9.45,.28,-30),(.07,.36,9.4),'plum_ink',False)
+s.box(store,'CounterRail',(9.45,1.97,-30),(.09,.15,9.4),'cheese_rind',False)
+s.box(store,'CounterPostA',(9.5,2.6,-30.4),(.18,.95,.22),'wood_dark',False,rotation=(0,0,-2))
+s.box(store,'CounterPostB',(9.5,2.6,-33.6),(.18,.95,.22),'wood_dark',False,rotation=(0,0,3))
+# Checkout clutter: bell, card reader, tip jar, receipt roll, scale, samples.
+s.cyl(store,'BellBase',(9.95,2.2,-28.3),.09,.04,'gold')
+s.sphere(store,'BellDome',(9.95,2.26,-28.3),(.09,.07,.09),'gold')
+s.sphere(store,'BellButton',(9.95,2.32,-28.3),(.03,.03,.03),'steel_dark')
+s.box(store,'CardReader',(9.8,2.25,-29.3),(.22,.16,.14),'steel',False,rotation=(12,0,-8))
+s.cyl(store,'TipJar',(10.15,2.31,-27.8),.1,.26,'turquoise_light')
+s.cyl(store,'TipCoins',(10.15,2.36,-27.8),.07,.06,'gold')
+s.cyl(store,'ReceiptRoll',(11.7,2.27,-28.3),.055,.2,'cream',(0,0,0))
+s.box(store,'ScaleBase',(10.5,2.22,-32.2),(.4,.08,.4),'steel',False)
+s.sphere(store,'ScaleDome',(10.5,2.34,-32.2),(.17,.14,.17),'steel')
+s.box(store,'SampleTray',(10.1,2.2,-33.4),(.55,.05,.4),'wood_warm',False)
+for tj in range(3):
+    s.box(store,'SampleCube'+str(tj),(9.95+tj*.16,2.27,-33.4),(.11,.1,.11),'cheese_yellow',False)
+s.text(store,'SampleTag',(10.1,2.5,-33.4),'FREE SAMPLE*',11,'cream_dim')
+# Hanging checkout board on two cords from the ceiling beam.
+s.box(store,'HangingBoard',(9.4,3.7,-30.2),(1.9,.7,.07),'plum_panel',False,rotation=(0,90,0))
+s.text(store,'HangingBoardText',(9.32,3.7,-30.2),'CHECKOUT',15,'cream',90)
+for hy in (3.95,):
+    s.cyl(store,'BoardCord'+str(hy),(9.4,4.55,-30.6),.02,.75,'steel_dark')
+    s.cyl(store,'BoardCord2'+str(hy),(9.4,4.55,-30.2),.02,.75,'steel_dark')
 for i,z in enumerate((-40,-45)):
     s.box(store,'Fridge'+str(i),(14.7,1.65,z),(3,3.3,3.8),'a0aaa0')
     s.box(store,'FridgeInset'+str(i),(13.16,1.8,z),(.08,2.5,3.1),'314c44',False)
     s.light(store,'FridgeLight'+str(i),(12.6,2,z),'turquoise_light',1.2,5)
 s.box(store,'BackPartition',(-5,2.8,-51),(24,5.6,.4),'56634f')
 s.text(store,'StockroomArrow',(11,3.7,-50.7),'STOCKROOM  >\nKEEP OUT',27,'efc17d')
+# Kitchen pass framing: the gap in the partition becomes a doorway, so the
+# chef's arena reads as a destination from the shop floor instead of a hole.
+s.box(store,'PassJambA',(7.3,2.8,-51),(.55,5.6,.75),'plum_panel',False)
+s.box(store,'PassJambB',(16.7,2.8,-51),(.55,5.6,.75),'plum_panel',False)
+s.box(store,'PassHeader',(12,5.45,-51),(10,.95,.75),'plum_panel',False)
+s.text(store,'PassSign',(12,5.32,-50.55),'KITCHEN  >  STAFF ONLY',19,'amber_hot')
+for pi,px in enumerate((-1.8,1.8)):
+    s.cyl(store,'PassLamp'+str(px),(12+px,5.0,-50.6),.05,.35,'steel_dark')
+    s.sphere(store,'PassBulb'+str(px),(12+px,4.78,-50.6),(.12,.15,.12),'amber_hot',True)
+# Curtain valance strips hang above head height over the threshold.
+for si,sx in enumerate((-2,-1,0,1,2)):
+    s.box(store,'PassStrip'+str(si),(12+sx*.85,4.15,-50.85),(.55,1.5,.05),'awning_cream',False,rotation=(0,0,sx*1.5))
+s.box(store,'PassRunner',(11.5,.02,-52.8),(3.2,.02,3.4),'awning_red',False)
 for i in range(5):
     barrel(store,'StockBarrel'+str(i),(-13+i*2,.8,-55))
 s.box(store,'CellarHatch',(11,.08,-55),(3,.15,3),'344842')
@@ -343,11 +390,20 @@ s.text(store,'CellarNotice',(11,2.5,-55),'DISTILLERY\n[F] Descend',25,'e6ba7f')
 interact('CellarDown',(11,1,-55),'Descend to the distillery',(10,-10.9,-42))
 for x in (-15,15):
     s.cyl(store,'Pipe'+str(x),(x,4.9,-42),.14,36,'916843',(90,0,0))
+# General wash is deliberately lazy: the six shop tubes only carry the aisles,
+# and the rear third drops off so the focal pools and glow props carry the
+# hierarchy instead of a uniform bath of light.
 for z in (-30,-42,-55):
     s.box(store,'CeilingBeam'+str(z),(0,5.7,z),(34,.35,.5),'344c45')
     for x in (-8,8):
         s.box(store,'Tube%s%s'%(x,z),(x,5.4,z),(3,.1,.25),'dce9b0',False,True)
-        s.light(store,'ShopLight%s%s'%(x,z),(x,4.9,z),'amber_light',2.2,14)
+        s.light(store,'ShopLight%s%s'%(x,z),(x,4.9,z),'amber_light',1.5 if z>-50 else 1.0,11 if z>-50 else 9)
+# Focal pools: checkout, cheese display, cellar hatch and the recipe vault.
+s.light(store,'CheckoutSpot',(11,4.3,-30),'amber_hot',3.4,8,spot=46)
+s.light(store,'CheeseSpot',(-5,3.3,-24.5),'amber_hot',2.4,5,spot=38)
+s.light(store,'CellarSpot',(11,4.3,-55),'turquoise_light',2.0,5,spot=36)
+s.light(store,'RecipeSpot',(7,4.4,-74),'cheese_yellow',2.6,6,spot=40)
+s.cyl(store,'CheeseGlowPool',(-5,.02,-24.5),1.4,.02,'amber_light',glow=True)
 # Patched walls, wet stains and a rat-sized future shortcut.
 for i in range(17):
     x,z=rng.uniform(-15,15),rng.uniform(-59,-27)
@@ -591,6 +647,17 @@ for lx,lz in [(-8,-30),(8,-30),(-8,-42),(8,-42),(-8,-55),(8,-55)]:
     s.cyl(store,'LampCord%s%s'%(lx,lz),(lx,5.5,lz),.03,.55,'steel_dark')
     s.cyl(store,'LampCone%s%s'%(lx,lz),(lx,5.08,lz),.5,.42,'plum_panel')
     s.sphere(store,'LampBulb%s%s'%(lx,lz),(lx,4.86,lz),(.16,.2,.16),'amber_hot',True)
+# Crooked hanging aisle boards break up the flat ceiling line and give the
+# floor plan readable landmarks. All positions are fixed - no rng here.
+for hi,(hx,hz,label,yaw) in enumerate([(-3,-33,'AISLE 01',-8),(4,-37,'AISLE 02',10),(-1,-47,'FRESH-ish',-5)]):
+    s.cyl(store,'SignCable%s'%(hi),(hx,5.85,hz),.02,.55,'steel_dark')
+    s.box(store,'HangingSign%s'%(hi),(hx,5.4,hz),(1.5,.55,.06),'plum_panel',False,rotation=(0,yaw,2 if hi==1 else -3))
+    s.text(store,'HangingText%s'%(hi),(hx,5.4,hz-.05),label,13,'cream',yaw)
+# Idle ceiling fan over the customer area: rod, hub and two crossed blades.
+s.cyl(store,'FanRod',(3,5.9,-26),.04,.65,'steel_dark')
+s.box(store,'FanHub',(3,5.5,-26),(.3,.12,.3),'steel_dark',False)
+s.box(store,'FanBladeA',(3,5.5,-26),(2.5,.04,.24),'wood_dark',False,rotation=(0,8,0))
+s.box(store,'FanBladeB',(3,5.5,-26),(2.5,.04,.24),'wood_dark',False,rotation=(0,98,3))
 # Turquoise service pipe with gold valves along the back partition.
 s.cyl(store,'ServicePipe',(-4,3.5,-50.7),.13,23,'turquoise_deep',(90,0,0))
 for vx in (-12,-7,-2):

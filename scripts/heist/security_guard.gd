@@ -53,10 +53,10 @@ func setup(owner_world: Node3D, origin: Vector3, is_boss: bool, species: int) ->
 		build_guard(species, 1.5 if boss else 1.0)
 	title = Label3D.new()
 	title.position.y = 4.5 if boss else 2.6
-	title.font_size = 28
+	title.font_size = 20
 	title.pixel_size = .008
 	title.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	title.outline_size = 10
+	title.outline_size = 6
 	add_child(title)
 	if boss:
 		# Pulsing aggro aura: a sibling ring of tell, never replacing it.
@@ -109,6 +109,7 @@ func build_guard(tier: int, scale_factor: float) -> void:
 		0:  # Rat: turquoise vest, plum cap with badge, big ears, banded tail, torch.
 			Visual.sphere(model,Vector3(0,1.0,-.48),Vector3(1.02,.82,.5),Palette.color(skin.vest))
 			Visual.sphere(model,Vector3(0,2.3,.02),Vector3(.92,.42,.88),Palette.color(skin.cap))
+			Visual.sphere(model,Vector3(0,2.24,-.44),Vector3(.5,.07,.26),Palette.color(skin.cap).darkened(.1))
 			Visual.sphere(model,Vector3(.4,2.34,.02),Vector3(.1,.06,.1),Palette.color(skin.badge))
 			for x in [-.66,.66]:
 				Visual.sphere(model,Vector3(x,2.62,.04),Vector3(.46,.52,.18),Palette.color(skin.ear))
@@ -120,6 +121,7 @@ func build_guard(tier: int, scale_factor: float) -> void:
 		1:  # Boar: hard hat, shoulder pads, tusks, hi-vis vest stripe.
 			Visual.sphere(model,Vector3(0,2.32,0),Vector3(.85,.4,.8),Palette.color(skin.cap))
 			Visual.sphere(model,Vector3(0,2.44,0),Vector3(.88,.28,.84),Palette.color(skin.cap).darkened(.15))
+			Visual.sphere(model,Vector3(0,2.3,-.4),Vector3(.55,.06,.3),Palette.color(skin.cap).darkened(.15))
 			for x in [-.78,.78]:
 				Visual.sphere(model,Vector3(x,1.9,.05),Vector3(.42,.3,.5),Palette.color(skin.snout).darkened(.1))
 			Visual.sphere(model,Vector3(0,1.0,-.48),Vector3(1.0,.8,.48),Palette.color(skin.vest))
@@ -165,16 +167,30 @@ func build_chef() -> void:
 		Visual.sphere(model,Vector3(x*.62,.12,-.05),Vector3(.45,.22,.62),body.darkened(.24))
 	for x in [-.7,.7]:
 		Visual.sphere(model,Vector3(x,2.55,.02),Vector3(.4,.45,.16),Palette.color(skin.ear))
-	# Wobbly tall hat lives on its own node so _process can sway it.
+	# Wobbly tall toque on its own node so _process can sway it: straight
+	# cylinder column under a puffed crown reads as "chef" across the arena,
+	# where the old white sphere stack just read as a lump.
 	hat = Node3D.new()
 	model.add_child(hat)
-	Visual.sphere(hat,Vector3(0,2.72,0),Vector3(.85,.5,.8),Palette.color(skin.hat))
-	Visual.sphere(hat,Vector3(0,3.05,0),Vector3(.68,.5,.64),Palette.color(skin.hat))
-	Visual.sphere(hat,Vector3(0,2.58,0),Vector3(.8,.14,.76),Palette.color(skin.hat_band))
+	var toque := MeshInstance3D.new()
+	var toque_mesh := CylinderMesh.new()
+	toque_mesh.top_radius=.4
+	toque_mesh.bottom_radius=.32
+	toque_mesh.height=1.2
+	toque_mesh.radial_segments=12
+	toque.mesh=toque_mesh
+	toque.position=Vector3(0,3.32,0)
+	toque.material_override=Materials.part(Palette.color(skin.hat))
+	hat.add_child(toque)
+	Visual.sphere(hat,Vector3(0,3.98,0),Vector3(.9,.42,.84),Palette.color(skin.hat))
+	Visual.sphere(hat,Vector3(0,2.74,0),Vector3(.88,.22,.82),Palette.color(skin.hat_band))
 	Visual.sphere(model,Vector3(0,.9,-.6),Vector3(1.05,1.05,.12),Palette.color(skin.apron))
 	Visual.sphere(model,Vector3(-.35,.9,-.68),Vector3(.05,1.0,.05),Palette.color(skin.strap))
 	Visual.sphere(model,Vector3(.35,.9,-.68),Vector3(.05,1.0,.05),Palette.color(skin.strap))
 	Visual.sphere(model,Vector3(0,1.74,-.62),Vector3(.52,.16,.14),Palette.color(skin.mustache))
+	# Winged mustache tips curl out to the sides for a stronger face profile.
+	Visual.sphere(model,Vector3(-.42,1.78,-.6),Vector3(.2,.11,.12),Palette.color(skin.mustache))
+	Visual.sphere(model,Vector3(.42,1.78,-.6),Vector3(.2,.11,.12),Palette.color(skin.mustache))
 	Visual.sphere(model,Vector3(0,1.56,-.56),Vector3(.4,.12,.1),Palette.color(skin.mustache).darkened(.12))
 	Visual.sphere(model,Vector3(0,1.38,-.46),Vector3(.32,.12,.1),Palette.color(skin.hat_band))
 	metal_box(Vector3(1.35,1.7,-.2),Vector3(.07,.6,.07),Palette.color(skin.ladle))
@@ -185,7 +201,10 @@ func _process(delta: float) -> void:
 	if not visible:
 		return
 	var names := ["THE BIG CHEESE","FOREMAN TUSK","MADAM MAGPIE","MECHA DRAGON"]
-	title.text = (names[tier] if boss else ["Rat security","Boar security","Magpie security","Lizard security"][tier]) + "  %d/%d\n%s" % [ceili(hp),int(max_hp),state]
+	# Boss names live in the HUD boss bar; floating text on any guard stays
+	# name-and-hp only so the field never grows debug readouts.
+	title.visible = not boss
+	title.text = (names[tier] if boss else ["Rat security","Boar security","Magpie security","Lizard security"][tier]) + "  %d/%d" % [ceili(hp),int(max_hp)]
 	title.modulate = Color("ffbb81") if boss else Color("d8dda9")
 	tell.visible = state in ["WIND UP","CHARGE","FIRE BREATH"]
 	model.position.y = sin(Time.get_ticks_msec()*.009)*.035 if state!="STUNNED" else 0

@@ -63,6 +63,10 @@ var fuel_bar: ProgressBar
 var fuel_fill: StyleBoxFlat
 var form_label: Label
 var tool_label: Label
+var toast_frame: PanelContainer
+var prompt_frame: PanelContainer
+var controls_hint: Label
+var controls_clock := 14.0
 var _text_cache: Dictionary = {}
 const ART_INDEX := {"grapple":4,"water":5,"crystal":6,"jetpack":7,"cart":8,"truck":9,"racecar":10}
 
@@ -398,8 +402,11 @@ func _process(delta: float) -> void:
 	hud.visible=active
 	tool_icon.visible=active and not shop_open
 	prompt.visible=active and not level.is_camera_input_blocked()
-	toast.visible=active and toast_clock>0
+	# Toast frame follows the message clock exactly - an empty pill would just
+	# be a dead panel covering the store signage.
+	toast_frame.visible=active and toast_clock>0
 	toast_clock-=delta
+	controls_clock=maxf(0.0,controls_clock-delta)
 	if not active:
 		return
 	var player := local_player()
@@ -426,7 +433,10 @@ func _process(delta: float) -> void:
 		if d<distance:
 			distance=d
 			nearest=marker
-	prompt.text="G Grab/drop  |  LMB Slap/throw  |  RMB Tool  |  Q Tools  |  B Bait  |  H Eat  |  C Feed  |  R Form  |  X Slime"
+	# Controls legend: shown for the first moments of a session, then only the
+	# tiny dim hint stays - context prompts take priority over both.
+	var show_controls := controls_clock>0
+	prompt.text="G Grab/drop   LMB Slap/throw   RMB Tool   Q Tools   B Bait   H Eat   C Feed   R Form   X Slime" if show_controls else ""
 	if nearest:
 		prompt.text="[F] "+str(nearest.get_meta("hint"))
 	var near_teammate := false
@@ -440,7 +450,9 @@ func _process(delta: float) -> void:
 		else:
 			near_teammate=true
 	if near_teammate:
-		prompt.text+="  |  [C] Feed"
+		if prompt.text!="":
+			prompt.text+="  |  "
+		prompt.text+="[C] Feed"
 	if data.get("held", "")!="":
 		prompt.text="CARRYING MERCHANDISE  |  G Drop  |  LMB Throw  |  F Sell at the loading bay"
 	carry_clock+=delta
@@ -472,6 +484,10 @@ func _process(delta: float) -> void:
 				prompt.text="[F] Drive "+TOOL_NAMES[kind]
 	if float(data.get("hp",100))<=0:
 		prompt.text="DOWNED - teammates can revive you. Rescue in %ds."%maxi(0,30-int(data.get("down_time",0)))
+	# The pill only exists while it says something; otherwise a tiny dim hint.
+	var has_message := prompt.text!=""
+	controls_hint.visible=prompt.visible and not has_message
+	prompt_frame.visible=prompt.visible and (has_message or controls_hint.visible)
 	if shop_open:
 		update_shop_header()
 
@@ -1038,28 +1054,28 @@ func build_ui() -> void:
 	# Tilted plum sign, top left: location line and the crooked task line.
 	var sign := Widgets.frame("panel","panel_edge",12,-.03)
 	sign.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-	sign.offset_left=18
-	sign.offset_top=14
+	sign.offset_left=16
+	sign.offset_top=12
 	var sign_rows := Widgets.rows(2)
-	hud=Widgets.label(20,"text")
+	hud=Widgets.label(17,"text")
 	sign_rows.add_child(hud)
-	task_label=Widgets.label(14,"warn")
+	task_label=Widgets.label(12,"warn")
 	sign_rows.add_child(task_label)
 	sign.add_child(sign_rows)
 	hud_root.add_child(sign)
 	# Alarm meter, top center - pulses when the crew draws heat.
 	alarm_frame=Widgets.frame("panel","panel_edge",10)
 	alarm_frame.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-	alarm_frame.offset_left=-130
-	alarm_frame.offset_right=130
+	alarm_frame.offset_left=-105
+	alarm_frame.offset_right=105
 	alarm_frame.offset_top=12
-	alarm_frame.offset_bottom=54
+	alarm_frame.offset_bottom=48
 	var alarm_rows := Widgets.rows(2)
-	var alarm_title := Widgets.label(12,"text_dim")
+	var alarm_title := Widgets.label(11,"text_dim")
 	alarm_title.text="ALARM"
 	alarm_title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	alarm_rows.add_child(alarm_title)
-	alarm_bar=Widgets.bar(228,12,"warn")
+	alarm_bar=Widgets.bar(176,9,"warn")
 	alarm_fill=alarm_bar.get_theme_stylebox("fill") as StyleBoxFlat
 	alarm_rows.add_child(alarm_bar)
 	alarm_frame.add_child(alarm_rows)
@@ -1067,15 +1083,15 @@ func build_ui() -> void:
 	# Boss bar under the alarm meter; only visible while a boss fights.
 	boss_frame=Widgets.frame("panel","boss",12)
 	boss_frame.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-	boss_frame.offset_left=-170
-	boss_frame.offset_right=170
-	boss_frame.offset_top=60
-	boss_frame.offset_bottom=128
+	boss_frame.offset_left=-140
+	boss_frame.offset_right=140
+	boss_frame.offset_top=56
+	boss_frame.offset_bottom=112
 	var boss_rows := Widgets.rows(2)
-	boss_label=Widgets.label(15,"boss")
+	boss_label=Widgets.label(13,"boss")
 	boss_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	boss_rows.add_child(boss_label)
-	boss_bar=Widgets.bar(300,14,"bad")
+	boss_bar=Widgets.bar(236,12,"bad")
 	boss_rows.add_child(boss_bar)
 	boss_frame.add_child(boss_rows)
 	boss_frame.hide()
@@ -1083,21 +1099,21 @@ func build_ui() -> void:
 	# Cash badge, top right, with the shared wallet and bank.
 	var cash_frame := Widgets.frame("panel","panel_edge",12,.025)
 	cash_frame.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	cash_frame.offset_left=-192
+	cash_frame.offset_left=-176
 	cash_frame.offset_right=-16
-	cash_frame.offset_top=14
-	cash_frame.offset_bottom=62
-	cash_label=Widgets.label(17,"gold")
+	cash_frame.offset_top=12
+	cash_frame.offset_bottom=50
+	cash_label=Widgets.label(15,"gold")
 	cash_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	cash_frame.add_child(cash_label)
 	hud_root.add_child(cash_frame)
 	# Tool icon in its own small frame under the cash badge.
 	var tool_frame := Widgets.frame("panel","panel_edge",12,-.02)
 	tool_frame.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	tool_frame.offset_left=-102
+	tool_frame.offset_left=-90
 	tool_frame.offset_right=-24
-	tool_frame.offset_top=68
-	tool_frame.offset_bottom=146
+	tool_frame.offset_top=58
+	tool_frame.offset_bottom=124
 	tool_icon=TextureRect.new()
 	tool_icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	tool_icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -1107,51 +1123,60 @@ func build_ui() -> void:
 	# Vitals, bottom left: hp, fuel, form and tool rows.
 	var vitals := Widgets.frame("panel","panel_edge",12)
 	vitals.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-	vitals.offset_left=18
-	vitals.offset_top=-132
-	vitals.offset_right=252
-	vitals.offset_bottom=-18
+	vitals.offset_left=14
+	vitals.offset_top=-112
+	vitals.offset_right=196
+	vitals.offset_bottom=-14
 	var vitals_rows := Widgets.rows(3)
-	var hp_title := Widgets.label(12,"text_dim")
+	var hp_title := Widgets.label(10,"text_dim")
 	hp_title.text="HP"
 	vitals_rows.add_child(hp_title)
-	hp_bar=Widgets.bar(200,13,"good")
+	hp_bar=Widgets.bar(150,10,"good")
 	hp_fill=hp_bar.get_theme_stylebox("fill") as StyleBoxFlat
 	vitals_rows.add_child(hp_bar)
-	var fuel_title := Widgets.label(12,"text_dim")
+	var fuel_title := Widgets.label(10,"text_dim")
 	fuel_title.text="FUEL"
 	vitals_rows.add_child(fuel_title)
-	fuel_bar=Widgets.bar(200,13,"info")
+	fuel_bar=Widgets.bar(150,10,"info")
 	fuel_fill=fuel_bar.get_theme_stylebox("fill") as StyleBoxFlat
 	vitals_rows.add_child(fuel_bar)
-	form_label=Widgets.label(14,"info")
+	form_label=Widgets.label(12,"info")
 	vitals_rows.add_child(form_label)
-	tool_label=Widgets.label(13,"text_dim")
+	tool_label=Widgets.label(11,"text_dim")
 	vitals_rows.add_child(tool_label)
 	vitals.add_child(vitals_rows)
 	hud_root.add_child(vitals)
-	# Prompt pill, bottom center; toast pill, top area below the alarm.
-	var prompt_frame := Widgets.frame("panel","panel_edge",16,.012)
-	prompt_frame.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-	prompt_frame.offset_left=-620
-	prompt_frame.offset_right=620
-	prompt_frame.offset_top=-78
-	prompt_frame.offset_bottom=-16
-	prompt=Widgets.label(17,"text")
+	# Prompt pill, bottom center, hugging its text; toast pill hugs its message.
+	# Both live in wide CenterContainers so the panels never stretch to a fixed
+	# size when there is nothing to say.
+	var prompt_slot := CenterContainer.new()
+	prompt_slot.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	prompt_slot.offset_top=-44
+	prompt_slot.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	prompt_frame=Widgets.frame("panel","panel_edge",16,.012)
+	var prompt_rows := Widgets.rows(0)
+	prompt=Widgets.label(15,"text")
 	prompt.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	prompt_frame.add_child(prompt)
-	hud_root.add_child(prompt_frame)
-	var toast_frame := Widgets.frame("panel","panel_edge",16,-.012)
-	toast_frame.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-	toast_frame.offset_left=-560
-	toast_frame.offset_right=560
-	toast_frame.offset_top=134
-	toast_frame.offset_bottom=216
-	toast=Widgets.label(21,"warn")
+	prompt_rows.add_child(prompt)
+	controls_hint=Widgets.label(11,"text_dim")
+	controls_hint.text="Esc Menu"
+	controls_hint.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	controls_hint.hide()
+	prompt_rows.add_child(controls_hint)
+	prompt_frame.add_child(prompt_rows)
+	prompt_slot.add_child(prompt_frame)
+	hud_root.add_child(prompt_slot)
+	var toast_slot := CenterContainer.new()
+	toast_slot.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	toast_slot.offset_top=122
+	toast_slot.offset_bottom=172
+	toast_slot.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	toast_frame=Widgets.frame("panel","panel_edge",16,-.012)
+	toast=Widgets.label(16,"warn")
 	toast.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	toast.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	toast_frame.add_child(toast)
-	hud_root.add_child(toast_frame)
+	toast_slot.add_child(toast_frame)
+	hud_root.add_child(toast_slot)
 	# The capture flow hides hud to screenshot clean scenes; hide the rest too.
 	hud.visibility_changed.connect(func(): hud_root.visible=hud.visible)
 	shop=PanelContainer.new()
@@ -1161,13 +1186,14 @@ func build_ui() -> void:
 	shop.offset_top=-290
 	shop.offset_bottom=290
 	var panel := StyleBoxFlat.new()
-	panel.bg_color=Color("182d30")
-	panel.border_color=Color("9fac7b")
+	panel.bg_color=Palette.color(Palette.UI.panel)
+	panel.border_color=Palette.color(Palette.UI.panel_edge)
 	panel.set_border_width_all(2)
-	panel.content_margin_left=22
-	panel.content_margin_right=22
-	panel.content_margin_top=18
-	panel.content_margin_bottom=18
+	panel.set_corner_radius_all(12)
+	panel.content_margin_left=18
+	panel.content_margin_right=18
+	panel.content_margin_top=14
+	panel.content_margin_bottom=14
 	shop.add_theme_stylebox_override("panel",panel)
 	canvas.add_child(shop)
 	var scroll := ScrollContainer.new()
@@ -1187,21 +1213,24 @@ func open_shop() -> void:
 	var heading := Label.new()
 	heading.name="Balance"
 	heading.text="THE PARTNER  /  Crew outfitter"
-	heading.add_theme_font_size_override("font_size",25)
+	heading.add_theme_font_size_override("font_size",20)
+	heading.add_theme_color_override("font_color",Palette.color(Palette.UI.gold))
 	shop_rows.add_child(heading)
 	for kind in PRICES:
 		var button := Button.new()
 		button.text="%s  /  $%d%s"%[TOOL_NAMES[kind],PRICES[kind],"  [OWNED]" if kind in campaign.gear and kind!="crystal" else ""]
 		button.icon=ItemDatabase.art_icon(ART_INDEX[kind])
-		button.add_theme_constant_override("icon_max_width",36)
+		button.add_theme_constant_override("icon_max_width",30)
 		button.expand_icon=true
-		button.custom_minimum_size.y=42
+		button.custom_minimum_size.y=38
 		button.disabled=kind in campaign.gear and kind!="crystal"
+		_style_button(button)
 		button.pressed.connect(func(): submit("shop","buy:"+kind); close_shop())
 		shop_rows.add_child(button)
 	var expansion := Button.new()
 	expansion.text="Buy production slot  /  $%d  (%d/4)"%[150*campaign.machines.size(),campaign.machines.size()]
 	expansion.disabled=campaign.machines.size()>=4
+	_style_button(expansion)
 	expansion.pressed.connect(func(): submit("shop","machine"); close_shop())
 	shop_rows.add_child(expansion)
 	for slot in campaign.machines.size():
@@ -1209,6 +1238,7 @@ func open_shop() -> void:
 			if int(campaign.recipes[tier])<=0: continue
 			var button := Button.new()
 			button.text="Slot %d: install %s recipe Lv.%d%s"%[slot+1,SPECIES[tier],campaign.recipes[tier]," [INSTALLED]" if int(campaign.machines[slot])==tier else ""]
+			_style_button(button)
 			button.pressed.connect(func(): submit("shop","install:%d:%d"%[slot,tier]); close_shop())
 			shop_rows.add_child(button)
 	for form in campaign.forms:
@@ -1216,13 +1246,46 @@ func open_shop() -> void:
 		var upgrade := int(campaign.upgrades.get(form,0))
 		button.text="Upgrade %s form  /  Lv.%d  /  $%d"%[form,upgrade,(upgrade+1)*120]
 		button.disabled=upgrade>=3
+		_style_button(button)
 		button.pressed.connect(func(): submit("shop","upgrade:"+form); close_shop())
 		shop_rows.add_child(button)
 	var close := Button.new()
 	close.text="BACK TO THE CREW"
+	_style_button(close)
 	close.pressed.connect(close_shop)
 	shop_rows.add_child(close)
 	Input.mouse_mode=Input.MOUSE_MODE_VISIBLE
+
+## Shop buttons wear the same plum-and-gold language as the HUD instead of the
+## raw Godot theme.
+func _style_button(button: Button) -> void:
+	var normal := StyleBoxFlat.new()
+	normal.bg_color=Color("342848")
+	normal.border_color=Palette.color(Palette.UI.panel_edge)
+	normal.set_border_width_all(1)
+	normal.set_corner_radius_all(10)
+	normal.content_margin_left=12
+	normal.content_margin_right=12
+	normal.content_margin_top=6
+	normal.content_margin_bottom=7
+	var hover := normal.duplicate() as StyleBoxFlat
+	hover.bg_color=Color("43335c")
+	var pressed := normal.duplicate() as StyleBoxFlat
+	pressed.bg_color=Palette.color(Palette.UI.panel)
+	var disabled := normal.duplicate() as StyleBoxFlat
+	disabled.bg_color=Color("241b30")
+	disabled.border_color=Color("453a55")
+	button.add_theme_stylebox_override("normal",normal)
+	button.add_theme_stylebox_override("hover",hover)
+	button.add_theme_stylebox_override("pressed",pressed)
+	button.add_theme_stylebox_override("disabled",disabled)
+	button.add_theme_stylebox_override("focus",StyleBoxEmpty.new())
+	button.add_theme_color_override("font_color",Palette.color(Palette.UI.text))
+	button.add_theme_color_override("font_hover_color",Palette.color(Palette.UI.gold))
+	button.add_theme_color_override("font_pressed_color",Palette.color(Palette.UI.gold))
+	button.add_theme_color_override("font_disabled_color",Color("8a7f95"))
+	button.add_theme_font_size_override("font_size",15)
+	button.alignment=HORIZONTAL_ALIGNMENT_LEFT
 
 func update_shop_header() -> void:
 	var heading := shop_rows.get_node_or_null("Balance") as Label

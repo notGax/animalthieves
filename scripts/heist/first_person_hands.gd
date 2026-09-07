@@ -6,8 +6,6 @@ const Palette = preload("res://scripts/visuals/palette.gd")
 var character: CharacterBody3D
 var camera: Camera3D
 var hands: Array[Node3D]=[]
-var arms: Array[MeshInstance3D]=[]
-var fingers: Array=[]
 var speeds := [Vector3.ZERO,Vector3.ZERO]
 var tool_root: Node3D
 var last_tool := ""
@@ -35,39 +33,27 @@ func _ready() -> void:
 	camera=get_parent()
 	character=camera.get_node("../../..")
 	skin=Palette.color(Palette.skin(character.skin_color).body)
+	# Stubby floating slime mitts: one fat palm, a knuckle pad, three chunky
+	# finger nubs and a thumb. No wrists, no forearms - the slime has no arms,
+	# so the mitts simply drift in from the bottom corners like the third-person
+	# mitten nubs do. Grip is a pitch of the whole mitten, never jointed fingers.
 	for side in [-1,1]:
 		var hand := Node3D.new()
-		hand.position=Vector3(side*.3,-.3,-.55)
+		hand.position=Vector3(side*.33,-.32,-.52)
 		add_child(hand)
 		hands.append(hand)
-		_paint(Visual.sphere(hand,Vector3.ZERO,Vector3(.24,.14,.25),skin))
-		_paint(Visual.sphere(hand,Vector3(side*-.105,-.015,-.035),Vector3(.08,.095,.14),skin.lightened(.04)),.04)
-		_paint(Visual.sphere(hand,Vector3(side*-.12,.02,-.1),Vector3(.06,.09,.13),skin.lightened(.02)),.02)
-		var digits: Array=[]
-		for i in range(4):
-			var finger := Node3D.new()
-			finger.position=Vector3(-.081+i*.054,0,-.09)
-			hand.add_child(finger)
-			_paint(Visual.sphere(finger,Vector3(0,0,-.055),Vector3(.055,.08,.15),skin))
-			var tip := Node3D.new()
-			tip.position.z=-.11
-			finger.add_child(tip)
-			_paint(Visual.sphere(tip,Vector3(0,0,-.035),Vector3(.052,.072,.095),skin.lightened(.025)),.025)
-			digits.append([finger,tip])
-		fingers.append(digits)
-		var arm := MeshInstance3D.new()
-		var cylinder := CylinderMesh.new()
-		cylinder.top_radius=.065
-		cylinder.bottom_radius=.085
-		cylinder.radial_segments=8
-		cylinder.height=1
-		arm.mesh=cylinder
-		_paint(arm,-.04)
-		add_child(arm)
-		arms.append(arm)
+		_paint(Visual.sphere(hand,Vector3.ZERO,Vector3(.27,.21,.28),skin))
+		_paint(Visual.sphere(hand,Vector3(0,.055,.07),Vector3(.22,.14,.17),skin.lightened(.04)),.04)
+		for n in range(3):
+			var nub := Visual.sphere(hand,Vector3((n-1)*.095,-.02,-.2),Vector3(.085,.095,.13),skin)
+			nub.rotation.x=-.3
+			_paint(nub)
+		var thumb := Visual.sphere(hand,Vector3(side*-.17,-.06,-.06),Vector3(.1,.13,.13),skin.lightened(.02))
+		thumb.rotation.z=side*-.35
+		_paint(thumb,.02)
 	tool_root=Node3D.new()
 	hands[1].add_child(tool_root)
-	tool_root.position=Vector3(0,.045,-.13)
+	tool_root.position=Vector3(0,.04,-.15)
 
 func _input(event: InputEvent) -> void:
 	if not character or not character.is_multiplayer_authority() or Input.mouse_mode!=Input.MOUSE_MODE_CAPTURED:
@@ -107,11 +93,11 @@ func _process(delta: float) -> void:
 	landing=move_toward(landing,0,delta*.6)
 	for i in range(2):
 		var side := -1 if i==0 else 1
-		var target := Vector3(side*.31,-.3,-.53)
+		var target := Vector3(side*.33,-.32,-.52)
 		var curl := .25
 		if speed>.5:
-			target.y+=sin(phase+i*PI)*.018
-			target.z+=cos(phase+i*PI)*.025
+			target.y+=sin(phase+i*PI)*.024
+			target.z+=cos(phase+i*PI)*.03
 		else:
 			target.y+=sin(clock*2.2)*.009
 		if not character.is_on_floor():
@@ -121,7 +107,7 @@ func _process(delta: float) -> void:
 			target=camera.to_local(held.global_position)+Vector3(side*.24,-.04,.16)
 			target.z=clampf(target.z,-1.65,-.45)
 			target.y=clampf(target.y,-.6,.2)
-			curl=1.15
+			curl=1.05
 		elif i==1 and tool in ["grapple","water","crystal"]:
 			target=Vector3(.27,-.24,-.62)
 			curl=1.0
@@ -138,16 +124,10 @@ func _process(delta: float) -> void:
 		speeds[i]+=(target-hands[i].position)*150*step
 		speeds[i]*=exp(-18*step)
 		hands[i].position+=speeds[i]*step
-		hands[i].rotation=Vector3(-.15-pulse*.15,side*-.15,side*.12)
-		for digit in fingers[i]:
-			digit[0].rotation.x=lerp_angle(digit[0].rotation.x,curl,minf(1,delta*16))
-			digit[1].rotation.x=curl*.55
-		var shoulder := Vector3(side*.43,-.5,.12)
-		var end := hands[i].position+Vector3(0,0,.1)
-		arms[i].position=(shoulder+end)*.5
-		arms[i].scale.y=shoulder.distance_to(end)
-		arms[i].look_at_from_position(to_global(arms[i].position),to_global(end))
-		arms[i].rotate_object_local(Vector3.RIGHT,PI*.5)
+		# Grip curls the whole mitten; clicks and landings squish it like rubber.
+		hands[i].rotation=Vector3(-.14-curl*.38-pulse*.12,side*-.22,side*.15)
+		var squish := pulse*.14+landing*1.2+sin(clock*2.3+i)*.012
+		hands[i].scale=Vector3(1.0+squish,1.0-squish*.7,1.0+squish)
 
 func part(pos: Vector3,size: Vector3,color: Color) -> void:
 	var mesh := MeshInstance3D.new()

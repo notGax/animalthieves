@@ -44,16 +44,17 @@ static func skin(index: int) -> Dictionary:
 
 
 ## Rounded dark panel with a warm gold edge - the crooked-shop UI look.
+## Kept lean: HUD panels should frame the scene, not cover it.
 static func panel_style(bg: Color, edge: Color, radius := 12) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = bg
 	style.border_color = edge
 	style.set_border_width_all(2)
 	style.set_corner_radius_all(radius)
-	style.content_margin_left = 14
-	style.content_margin_right = 14
-	style.content_margin_top = 8
-	style.content_margin_bottom = 8
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	style.content_margin_top = 4
+	style.content_margin_bottom = 5
 	return style
 
 
