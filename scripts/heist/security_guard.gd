@@ -24,6 +24,7 @@ var title: Label3D
 var tell: MeshInstance3D
 var aura: MeshInstance3D
 var hat: Node3D
+var hat_base := Vector3.ZERO
 var target_position := Vector3.ZERO
 # Animatable part references captured during the build functions, so _process
 # can pose the character from local state only (nothing here is networked).
@@ -37,6 +38,10 @@ var pupil_l: MeshInstance3D
 var pupil_r: MeshInstance3D
 var pupil_base_l := Vector3.ZERO
 var pupil_base_r := Vector3.ZERO
+var eye_base_l := Vector3.ONE
+var eye_base_r := Vector3.ONE
+var pupil_scale_l := Vector3.ONE
+var pupil_scale_r := Vector3.ONE
 var ear_l: Node3D
 var ear_r: Node3D
 var tail: Array[MeshInstance3D] = []
@@ -105,6 +110,10 @@ func setup(owner_world: Node3D, origin: Vector3, is_boss: bool, species: int) ->
 	else:
 		build_guard(species, 1.5 if boss else 1.0)
 	base_scale = model.scale
+	# Hats keep the position they were built with: _process only ever adds the
+	# stun pop on top of it.
+	if hat:
+		hat_base = hat.position
 	last_vis_pos = origin
 	# Stun stars orbit overhead only while STUNNED; the mold-green halo marks
 	# a bribed guard. Both are cosmetic siblings of the tell ring.
@@ -199,12 +208,16 @@ func build_guard(tier: int, scale_factor: float) -> void:
 		var pupil := Visual.sphere(head,Vector3(x,.1,-.62),Vector3(.12,.17,.08),Palette.color(skin.pupil))
 		if x < 0.0:
 			eye_l = white
+			eye_base_l = white.scale
 			pupil_l = pupil
 			pupil_base_l = pupil.position
+			pupil_scale_l = pupil.scale
 		else:
 			eye_r = white
+			eye_base_r = white.scale
 			pupil_r = pupil
 			pupil_base_r = pupil.position
+			pupil_scale_r = pupil.scale
 	for x in [-.616,.616]:
 		var arm := Visual.sphere(model,Vector3(x,.9,0),Vector3(.26,.72,.3),body.darkened(.12))
 		if x < 0.0:
@@ -301,12 +314,16 @@ func build_chef() -> void:
 		var pupil := Visual.sphere(head,Vector3(x*.55,.12,-.64),Vector3(.11,.16,.07),Palette.color("1b2b33"))
 		if x < 0.0:
 			eye_l = white
+			eye_base_l = white.scale
 			pupil_l = pupil
 			pupil_base_l = pupil.position
+			pupil_scale_l = pupil.scale
 		else:
 			eye_r = white
+			eye_base_r = white.scale
 			pupil_r = pupil
 			pupil_base_r = pupil.position
+			pupil_scale_r = pupil.scale
 		var arm := Visual.sphere(model,Vector3(x*1.35,.85,0),Vector3(.3,.75,.32),body.darkened(.12))
 		if x < 0.0:
 			arm_l = arm
@@ -343,8 +360,10 @@ func build_chef() -> void:
 	Visual.sphere(model,Vector3(-.35,.9,-.68),Vector3(.05,1.0,.05),Palette.color(skin.strap))
 	Visual.sphere(model,Vector3(.35,.9,-.68),Vector3(.05,1.0,.05),Palette.color(skin.strap))
 	# Mustache rides its own node so inertia and chewing can move it as a unit.
+	# Head-local coordinates: the old model-space spot (0,1.74,-.62) minus
+	# head_base (0,2.0,.06), since this node is parented to the head rig.
 	mouth = Node3D.new()
-	mouth.position = Vector3(0,1.74,-.62)
+	mouth.position = Vector3(0,-.26,-.68)
 	head.add_child(mouth)
 	Visual.sphere(mouth,Vector3.ZERO,Vector3(.52,.16,.14),Palette.color(skin.mustache))
 	# Winged mustache tips curl out to the sides for a stronger face profile.
@@ -502,15 +521,16 @@ func _process(delta: float) -> void:
 	spin = maxf(0.0,spin-delta*3.2)
 	var cross := clampf(spin*.12,0.0,1.0)
 	if eye_l and eye_r:
-		eye_l.scale.y = eye_open
-		eye_r.scale.y = eye_open
+		# Openness multiplies the built eye scale; never replace it outright.
+		eye_l.scale = Vector3(eye_base_l.x,eye_base_l.y*eye_open,eye_base_l.z)
+		eye_r.scale = Vector3(eye_base_r.x,eye_base_r.y*eye_open,eye_base_r.z)
 		eye_l.rotation.z = -anger_amt*.22 - spin*.5
 		eye_r.rotation.z = anger_amt*.22 + spin*.5
 	if pupil_l and pupil_r:
 		pupil_l.position.x = pupil_base_l.x*(1.0-cross*.8)
 		pupil_r.position.x = pupil_base_r.x*(1.0-cross*.8)
-		pupil_l.scale = Vector3.ONE*(1.0+anger_amt*.3)
-		pupil_r.scale = Vector3.ONE*(1.0+anger_amt*.3)
+		pupil_l.scale = pupil_scale_l*(1.0+anger_amt*.3)
+		pupil_r.scale = pupil_scale_r*(1.0+anger_amt*.3)
 	# --- Secondary motion: hat inertia, ear lag, tail sway, tool business.
 	hat_pose = hat_pose.lerp(Vector2(-lean*1.4,roll*1.5),1.0-exp(-5.0*delta))
 	if hat:
@@ -520,7 +540,7 @@ func _process(delta: float) -> void:
 			cos(anim_time*1.9)*.04+hat_pose.x+hat_tilt+.2*low_hp_amt*.5,
 			0.0,
 			sin(anim_time*2.3)*.055+hat_pose.y+.15*low_hp_amt+spin*.3)
-		hat.position.y = hat_pop*.5
+		hat.position = hat_base+Vector3.UP*hat_pop*.5
 	if ear_l and ear_r:
 		var lag := clampf(side_speed*.15,-.25,.25)
 		ear_l.rotation = Vector3(.25*wind_amt,0.0,lag+sin(anim_time*3.1)*.03)
@@ -574,12 +594,13 @@ func _process(delta: float) -> void:
 	if bribe_ring.visible:
 		bribe_ring.position.y = bribe_base+sin(anim_time*3.0)*.08
 		bribe_ring.rotation.y = anim_time*3.0
-	# Charging enemies kick up dust behind them.
+	# Charging enemies kick up dust behind them. Vfx offsets are parent-local,
+	# so this stays a small local offset rather than a world position.
 	if state == "CHARGE" and vis_speed > 4.0:
 		dust_clock -= delta
 		if dust_clock <= 0.0:
 			dust_clock = .11
-			Vfx.dust(self,global_position+Vector3.UP*.15,1.1 if boss else .7)
+			Vfx.dust(self,Vector3(0,.15,0),1.1 if boss else .7)
 	if not multiplayer.is_server():
 		position = position.lerp(target_position, minf(1,delta*15))
 

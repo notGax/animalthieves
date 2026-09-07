@@ -22,7 +22,7 @@ shader = ExtResource("surface")
 shader_parameter/atlas = ExtResource("atlas")
 shader_parameter/surface_kind = 0
 shader_parameter/tile_size = 4.0
-shader_parameter/tint = Color(1.08, 0.85, 0.82, 1)
+shader_parameter/tint = Color(0.682, 1.395, 0.633, 1)
 
 [sub_resource type="CylinderMesh" id="r5"]
 top_radius = 0.07

@@ -48,6 +48,23 @@ KIND_TINT = {
     3: (0.82, 1.02, 1.08),
     4: (1.0, 1.0, 1.0),
 }
+# The atlas quadrant supplies the surface PATTERN; the palette role supplies
+# the COLOR. With its tuned KIND_TINT each quadrant reads as its reference
+# role below, so any other role on that quadrant gets a tint derived from its
+# own palette hex relative to the reference - mold reads green on the brick
+# quadrant, steel reads neutral on the teal one, and so on. Texture family and
+# art-direction color are separate axes.
+KIND_REFERENCE = {0: 'brick_rose', 1: 'tile_pale', 2: 'wood_warm', 3: 'turquoise', 4: 'asphalt'}
+
+def role_tint(role, kind):
+    base = KIND_TINT[kind]
+    ref = KIND_REFERENCE.get(kind)
+    if ref is None or ref == role or ref not in PALETTE or role not in PALETTE:
+        return base
+    def rgb(hex_color):
+        return tuple(int(hex_color[i:i+2], 16)/255 for i in (0, 2, 4))
+    role_rgb, ref_rgb = rgb(PALETTE[role]), rgb(PALETTE[ref])
+    return tuple(base[i]*role_rgb[i]/ref_rgb[i] for i in range(3))
 # Legacy hex -> role. Keeps every existing call site working while recoloring.
 LEGACY = {
     # painted surfaces (kind 0-4)
@@ -124,7 +141,7 @@ class Scene:
         kind = None if glow else KIND_ROLES.get(resolved)
         if kind is not None:
             if key not in self.materials:
-                tint = ', '.join(str(round(v, 3)) for v in KIND_TINT[kind])
+                tint = ', '.join(str(round(v, 3)) for v in role_tint(resolved, kind))
                 self.materials[key] = self.resource('ShaderMaterial', 'shader = ExtResource("surface")\nshader_parameter/atlas = ExtResource("atlas")\nshader_parameter/surface_kind = %d\nshader_parameter/tile_size = 4.0\nshader_parameter/tint = Color(%s, 1)' % (kind, tint))
             return self.materials[key]
         if key not in self.materials:

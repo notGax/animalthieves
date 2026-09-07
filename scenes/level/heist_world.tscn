@@ -299,7 +299,7 @@ shader = ExtResource("surface")
 shader_parameter/atlas = ExtResource("atlas")
 shader_parameter/surface_kind = 0
 shader_parameter/tile_size = 4.0
-shader_parameter/tint = Color(1.08, 0.85, 0.82, 1)
+shader_parameter/tint = Color(0.591, 0.465, 0.54, 1)
 
 [sub_resource type="BoxShape3D" id="r78"]
 size = Vector3(0.6, 6, 38)
@@ -330,7 +330,7 @@ shader = ExtResource("surface")
 shader_parameter/atlas = ExtResource("atlas")
 shader_parameter/surface_kind = 0
 shader_parameter/tile_size = 4.0
-shader_parameter/tint = Color(1.08, 0.85, 0.82, 1)
+shader_parameter/tint = Color(0.768, 0.561, 0.561, 1)
 
 [sub_resource type="BoxShape3D" id="r87"]
 size = Vector3(23, 8, 6)
@@ -343,7 +343,7 @@ shader = ExtResource("surface")
 shader_parameter/atlas = ExtResource("atlas")
 shader_parameter/surface_kind = 3
 shader_parameter/tile_size = 4.0
-shader_parameter/tint = Color(0.82, 1.02, 1.08, 1)
+shader_parameter/tint = Color(0.403, 0.65, 0.702, 1)
 
 [sub_resource type="BoxShape3D" id="r90"]
 size = Vector3(5, 4, 0.25)
@@ -390,7 +390,7 @@ shader = ExtResource("surface")
 shader_parameter/atlas = ExtResource("atlas")
 shader_parameter/surface_kind = 2
 shader_parameter/tile_size = 4.0
-shader_parameter/tint = Color(1.12, 0.92, 0.78, 1)
+shader_parameter/tint = Color(0.759, 0.585, 0.52, 1)
 
 [sub_resource type="BoxMesh" id="r104"]
 size = Vector3(4, 2.6, 0.2)
@@ -679,7 +679,7 @@ shader = ExtResource("surface")
 shader_parameter/atlas = ExtResource("atlas")
 shader_parameter/surface_kind = 0
 shader_parameter/tile_size = 4.0
-shader_parameter/tint = Color(1.08, 0.85, 0.82, 1)
+shader_parameter/tint = Color(0.682, 1.395, 0.633, 1)
 
 [sub_resource type="BoxMesh" id="r196"]
 size = Vector3(3.4, 2.5, 6)
@@ -757,7 +757,7 @@ shader = ExtResource("surface")
 shader_parameter/atlas = ExtResource("atlas")
 shader_parameter/surface_kind = 0
 shader_parameter/tile_size = 4.0
-shader_parameter/tint = Color(1.08, 0.85, 0.82, 1)
+shader_parameter/tint = Color(0.967, 0.906, 0.955, 1)
 
 [sub_resource type="BoxShape3D" id="r215"]
 size = Vector3(0.5, 6, 42)
@@ -879,7 +879,7 @@ shader = ExtResource("surface")
 shader_parameter/atlas = ExtResource("atlas")
 shader_parameter/surface_kind = 1
 shader_parameter/tile_size = 4.0
-shader_parameter/tint = Color(1.05, 1.04, 0.92, 1)
+shader_parameter/tint = Color(0.673, 0.826, 0.655, 1)
 
 [sub_resource type="BoxMesh" id="r252"]
 size = Vector3(1.96, 0.02, 1.96)
@@ -1647,7 +1647,7 @@ shader = ExtResource("surface")
 shader_parameter/atlas = ExtResource("atlas")
 shader_parameter/surface_kind = 2
 shader_parameter/tile_size = 4.0
-shader_parameter/tint = Color(1.12, 0.92, 0.78, 1)
+shader_parameter/tint = Color(1.126, 0.951, 0.52, 1)
 
 [sub_resource type="BoxMesh" id="r505"]
 size = Vector3(0.18, 0.95, 0.22)
@@ -1682,7 +1682,7 @@ shader = ExtResource("surface")
 shader_parameter/atlas = ExtResource("atlas")
 shader_parameter/surface_kind = 3
 shader_parameter/tile_size = 4.0
-shader_parameter/tint = Color(0.82, 1.02, 1.08, 1)
+shader_parameter/tint = Color(0.963, 0.498, 0.594, 1)
 
 [sub_resource type="BoxMesh" id="r512"]
 size = Vector3(0.22, 0.16, 0.14)
@@ -1692,7 +1692,7 @@ shader = ExtResource("surface")
 shader_parameter/atlas = ExtResource("atlas")
 shader_parameter/surface_kind = 3
 shader_parameter/tile_size = 4.0
-shader_parameter/tint = Color(0.82, 1.02, 1.08, 1)
+shader_parameter/tint = Color(2.004, 0.99, 1.154, 1)
 
 [sub_resource type="CylinderMesh" id="r514"]
 top_radius = 0.1
@@ -2036,7 +2036,7 @@ shader = ExtResource("surface")
 shader_parameter/atlas = ExtResource("atlas")
 shader_parameter/surface_kind = 0
 shader_parameter/tile_size = 4.0
-shader_parameter/tint = Color(1.08, 0.85, 0.82, 1)
+shader_parameter/tint = Color(0.408, 0.978, 0.654, 1)
 
 [sub_resource type="CylinderMesh" id="r595"]
 top_radius = 0.6952277432857402
