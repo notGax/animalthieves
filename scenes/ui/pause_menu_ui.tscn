@@ -63,9 +63,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -180.0
-offset_top = -178.0
+offset_top = -210.0
 offset_right = 180.0
-offset_bottom = 178.0
+offset_bottom = 210.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
@@ -100,6 +100,18 @@ theme_override_styles/focus = SubResource("StyleBoxEmpty_button_focus")
 text = "RESUME"
 flat = true
 
+[node name="Settings" type="Button" parent="Overlay/Panel/MarginContainer/Buttons"]
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_override_colors/font_hover_color = Color(0.55, 0.75, 0.95, 1)
+theme_override_colors/font_pressed_color = Color(0.42, 0.62, 0.82, 1)
+theme_override_font_sizes/font_size = 32
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_pressed")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_button_focus")
+text = "SETTINGS"
+flat = true
+
 [node name="MainMenu" type="Button" parent="Overlay/Panel/MarginContainer/Buttons"]
 layout_mode = 2
 mouse_default_cursor_shape = 2
@@ -123,5 +135,6 @@ text = "QUIT"
 flat = true
 
 [connection signal="pressed" from="Overlay/Panel/MarginContainer/Buttons/Resume" to="." method="_on_resume_pressed"]
+[connection signal="pressed" from="Overlay/Panel/MarginContainer/Buttons/Settings" to="." method="_on_settings_pressed"]
 [connection signal="pressed" from="Overlay/Panel/MarginContainer/Buttons/MainMenu" to="." method="_on_main_menu_pressed"]
 [connection signal="pressed" from="Overlay/Panel/MarginContainer/Buttons/Quit" to="." method="_on_quit_pressed"]

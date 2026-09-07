@@ -22,6 +22,11 @@ var _nickname_height_requesters: Dictionary = {}
 @onready var inventory_ui: InventoryUI = $InventoryUI
 @onready var player_list_ui: PlayerListUI = $PlayerListUI
 @onready var pause_menu: PauseMenuUI = $PauseMenuUI
+@onready var settings_menu: SettingsMenuUI = $SettingsMenuUI
+
+## Where the settings panel was opened from, so Back returns to the right
+## place: "" = main menu, "pause" = the pause overlay.
+var _settings_origin := ""
 
 
 func _ready():
@@ -31,6 +36,7 @@ func _ready():
 		Network.start_host("", "")
 
 	pause_menu.hide_menu()
+	settings_menu.hide_menu()
 	main_menu.show_menu()
 	multiplayer_chat.set_process_input(true)
 
@@ -40,9 +46,13 @@ func _ready():
 	pause_menu.resume_pressed.connect(_on_pause_resume_pressed)
 	pause_menu.main_menu_pressed.connect(_on_pause_main_menu_pressed)
 	pause_menu.quit_pressed.connect(_on_pause_quit_pressed)
+	pause_menu.settings_pressed.connect(_open_settings_from_pause)
+	main_menu.settings_pressed.connect(_open_settings_from_main_menu)
+	settings_menu.closed.connect(_on_settings_closed)
 	# UI-layer click for every menu commit; the synthesis lives in GameAudio.
 	for button_signal in [main_menu.host_pressed, main_menu.join_pressed, main_menu.quit_pressed,
-			pause_menu.resume_pressed, pause_menu.main_menu_pressed, pause_menu.quit_pressed]:
+			pause_menu.resume_pressed, pause_menu.main_menu_pressed, pause_menu.quit_pressed,
+			pause_menu.settings_pressed, main_menu.settings_pressed]:
 		button_signal.connect(_play_menu_click)
 
 	if inventory_ui:
@@ -59,9 +69,10 @@ func _ready():
 
 func _process(_delta: float) -> void:
 	var can_show_player_list := (
-		not main_menu.is_menu_visible() and not pause_menu.is_menu_visible() and multiplayer.has_multiplayer_peer()
+		not main_menu.is_menu_visible() and not pause_menu.is_menu_visible()
+		and not settings_menu.is_menu_visible() and multiplayer.has_multiplayer_peer()
 	)
-	if Input.is_key_pressed(KEY_TAB) and can_show_player_list:
+	if Input.is_action_pressed("player_list") and can_show_player_list:
 		if not player_list_visible:
 			_show_player_list()
 	elif player_list_visible:
@@ -386,7 +397,7 @@ func _on_inventory_closed():
 
 func is_gameplay_input_blocked() -> bool:
 	var world := get_node_or_null("Environment/HeistWorld")
-	return pause_menu.is_menu_visible() or (world != null and world.shop_open)
+	return pause_menu.is_menu_visible() or settings_menu.is_menu_visible() or (world != null and world.shop_open)
 
 
 func is_camera_input_blocked() -> bool:
@@ -394,6 +405,9 @@ func is_camera_input_blocked() -> bool:
 
 
 func _handle_pause_action() -> void:
+	if settings_menu.is_menu_visible():
+		_close_settings()
+		return
 	var world := get_node_or_null("Environment/HeistWorld")
 	if world and world.shop_open:
 		world.close_shop()
@@ -414,6 +428,31 @@ func _handle_pause_action() -> void:
 
 func _show_pause_menu() -> void:
 	pause_menu.show_menu()
+	_update_mouse_mode()
+
+
+func _open_settings_from_main_menu() -> void:
+	_settings_origin = ""
+	settings_menu.show_menu()
+	_update_mouse_mode()
+
+
+func _open_settings_from_pause() -> void:
+	_settings_origin = "pause"
+	pause_menu.hide_menu()
+	settings_menu.show_menu()
+	_update_mouse_mode()
+
+
+func _on_settings_closed() -> void:
+	_close_settings()
+
+
+func _close_settings() -> void:
+	settings_menu.hide_menu()
+	if _settings_origin == "pause":
+		_settings_origin = ""
+		pause_menu.show_menu()
 	_update_mouse_mode()
 
 
@@ -443,6 +482,7 @@ func _update_mouse_mode() -> void:
 	var ui_requires_cursor: bool = (
 		main_menu.is_menu_visible()
 		or pause_menu.is_menu_visible()
+		or settings_menu.is_menu_visible()
 		or (get_node_or_null("Environment/HeistWorld") != null and $Environment/HeistWorld.shop_open)
 		or inventory_visible
 		or not multiplayer.has_multiplayer_peer()

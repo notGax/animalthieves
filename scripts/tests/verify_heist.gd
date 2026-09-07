@@ -285,6 +285,100 @@ func run() -> void:
 		if child is AudioStreamPlayer3D and child.stream!=null and child.stream.loop_mode==AudioStreamWAV.LOOP_FORWARD:
 			ambience+=1
 	check(ambience>=6,"the Rat Mart soundscape keeps looping 3D emitters at the fridges, stills and checkout")
+	# Audio mix and wall occlusion: Prefs owns Master/Music/SFX plus muffled
+	# twins; the controller raycasts the camera→source path on the world layer.
+	check(AudioServer.get_bus_index("Music")!=-1 and AudioServer.get_bus_index("SFX")!=-1,
+		"the mix ships Music and SFX buses under Master")
+	check(AudioServer.get_bus_index("Muffled Music")!=-1 and AudioServer.get_bus_index("Muffled SFX")!=-1,
+		"each mix bus has a low-passed muffled twin for sealed-off sources")
+	check(world.audio_occlusion!=null and world.audio_occlusion.get_parent()==world,
+		"the world mounts the wall-occlusion controller over its audio sources")
+	var ambience_on_music := true
+	for child in world.get_children():
+		if child is AudioStreamPlayer3D and child.name.begins_with("Audio_"):
+			# The occlusion controller may have the live emitter routed to the
+			# muffled twin (the lobby camera stands outside the store); what
+			# the check pins is the authored mix bus it fell back from.
+			var authored: String=child.get_meta("bus_base") if child.has_meta("bus_base") else child.bus
+			ambience_on_music=ambience_on_music and authored=="Music"
+	check(ambience_on_music,"ambience emitters ride the Music bus; one-shots stay on SFX")
+	var prefs := root.get_node("Prefs")
+	var saved_master: float=prefs.get_volume("master")
+	prefs.apply_volume("master",0.5)
+	check(absf(db_to_linear(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Master")))-0.5)<0.02,
+		"volume sliders write through to the Master bus")
+	prefs.apply_volume("master",saved_master)
+	check(level.settings_menu!=null and not level.settings_menu.is_menu_visible(),
+		"the settings overlay ships hidden beside the pause menu")
+	check(prefs.ACTIONS.size()>=12 and InputMap.has_action("use_tool") and InputMap.has_action("player_list"),
+		"every gameplay verb is an InputMap action the controls screen can rebind")
+	check(prefs.action_label("attack")=="LMB" and prefs.action_label("carry")!="?",
+		"the HUD legend reads its labels from the live InputMap")
+	# Occlusion: a sealed source starts behind a wall instantly muffled and on
+	# the muffled bus, while an unblocked source keeps its base volume.
+	var saved_cfg := ConfigFile.new()
+	saved_cfg.load(prefs.SAVE_PATH)
+	var saved_carry_code: String=saved_cfg.get_value("keybinds","carry","")
+	var saved_carry: String=prefs.action_label("carry")
+	var alt := InputEventKey.new()
+	alt.physical_keycode=KEY_P
+	check(prefs.event_to_code(alt)=="key:80" and prefs.code_to_event("key:80").physical_keycode==KEY_P,
+		"bindings round-trip through the save-code format")
+	check(prefs.rebind("carry",alt) and prefs.action_label("carry")=="P" and InputMap.event_is_action(alt,"carry"),
+		"rebinding an action updates its InputMap binding and its label")
+	if saved_carry_code!="" and prefs.code_to_event(saved_carry_code)!=null:
+		prefs.rebind("carry",prefs.code_to_event(saved_carry_code))
+	else:
+		prefs.reset_action("carry")
+	check(prefs.action_label("carry")==saved_carry,"restoring the saved binding puts the label back")
+	var occl_camera: Camera3D=world.get_node("LobbyPreview")
+	occl_camera.current=true
+	occl_camera.global_position=Vector3(0,3,-20)
+	occl_camera.look_at(Vector3(0,3,-40))
+	var wall := StaticBody3D.new()
+	wall.collision_layer=2
+	wall.collision_mask=0
+	var wall_shape := CollisionShape3D.new()
+	var wall_box := BoxShape3D.new()
+	# A tiny wall box sits exactly on the camera→test-source ray so the real
+	# ambience emitters (whose rays cross the store at other x) stay clean.
+	wall_box.size=Vector3(0.6,0.6,0.6)
+	wall_shape.shape=wall_box
+	wall.add_child(wall_shape)
+	world.add_child(wall)
+	wall.global_position=Vector3(0,2.625,-25)
+	var sealed := AudioStreamPlayer3D.new()
+	sealed.stream=GameAudio.stream("cash")
+	sealed.bus="SFX"
+	sealed.volume_db=GameAudio.VOLUME_DB["cash"]
+	world.add_child(sealed)
+	sealed.global_position=Vector3(0,1.5,-40)
+	sealed.play()
+	var open_src := AudioStreamPlayer3D.new()
+	open_src.stream=GameAudio.stream("click")
+	open_src.bus="SFX"
+	open_src.volume_db=GameAudio.VOLUME_DB["click"]
+	world.add_child(open_src)
+	open_src.global_position=Vector3(0,3,-18)
+	open_src.play()
+	await physics_frame
+	await physics_frame
+	world.audio_occlusion.refresh()
+	check(sealed.playing and sealed.volume_db<GameAudio.VOLUME_DB["cash"] and sealed.bus=="Muffled SFX",
+		"a source sealed behind world geometry ducks and swaps to the muffled bus")
+	check(open_src.bus=="SFX" and absf(open_src.volume_db-GameAudio.VOLUME_DB["click"])<0.01,
+		"an unblocked source keeps its base volume and bus")
+	world.remove_child(wall)
+	world.remove_child(sealed)
+	world.remove_child(open_src)
+	wall.free()
+	sealed.free()
+	open_src.free()
+	# Let the controller settle everything back to its base bus/volume before
+	# taking the listener away again.
+	for i in 3:
+		world.audio_occlusion.refresh()
+	occl_camera.current=false
 	for owned in ["cart","truck","racecar"]:
 		if not world.campaign.gear.has(owned): world.campaign.gear.append(owned)
 	await physics_frame

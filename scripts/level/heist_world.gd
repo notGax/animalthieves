@@ -35,6 +35,7 @@ var player_state: Dictionary = {}
 var enemies: Array = []
 var vehicles: Dictionary = {}
 var vehicle_inputs: Dictionary = {}
+var audio_occlusion: AudioOcclusion
 var campaign: Dictionary = {}
 var alarm := 0.0
 var sabotage := 0
@@ -86,6 +87,12 @@ func _ready() -> void:
 	# The Rat Mart soundscape: fridge hums, cellar stills, in-store jingle.
 	# All placement and synthesis lives in GameAudio.
 	GameAudio.build_rat_mart_ambience(self)
+	# Wall occlusion runs after the ambience exists so its initial sweep
+	# registers every emitter; later one-shots and rig hooks arrive via
+	# tree signals.
+	audio_occlusion=AudioOcclusion.new()
+	audio_occlusion.name="AudioOcclusion"
+	add_child(audio_occlusion)
 	Network.player_connected.connect(_on_player_connected)
 	Network.server_disconnected.connect(_reset)
 	multiplayer.peer_disconnected.connect(_peer_left)
@@ -476,9 +483,13 @@ func _process(delta: float) -> void:
 	# Controls legend: shown for the first moments of a session, then only the
 	# tiny dim hint stays - context prompts take priority over both.
 	var show_controls := controls_clock>0
-	var prompt_text := "G Grab/drop   LMB Slap/throw   RMB Tool   Q Tools   B Bait   H Eat   C Feed   R Form   X Slime" if show_controls else ""
+	# Legend labels come from the live InputMap so a rebound key reads correctly.
+	var prompt_text := "%s Grab/drop   %s Slap/throw   %s Tool   %s Tools   %s Bait   %s Eat   %s Feed   %s Form   %s Slime"%[
+		Prefs.action_label("carry"),Prefs.action_label("attack"),Prefs.action_label("tool_use"),
+		Prefs.action_label("cycle_tool"),Prefs.action_label("bait"),Prefs.action_label("eat"),
+		Prefs.action_label("feed"),Prefs.action_label("transform"),Prefs.action_label("slime")] if show_controls else ""
 	if nearest:
-		prompt_text="[F] "+str(nearest.get_meta("hint"))
+		prompt_text="["+Prefs.action_label("use_tool")+"] "+str(nearest.get_meta("hint"))
 	var near_teammate := false
 	for other in level.players_container.get_children():
 		if other==player:
@@ -486,15 +497,16 @@ func _process(delta: float) -> void:
 		if other.global_position.distance_to(player.global_position)>=3:
 			continue
 		if float(player_state.get(str(other.name),{}).get("hp",100))<=0:
-			prompt_text="[F] Revive teammate"
+			prompt_text="["+Prefs.action_label("use_tool")+"] Revive teammate"
 		else:
 			near_teammate=true
 	if near_teammate:
 		if prompt_text!="":
 			prompt_text+="  |  "
-		prompt_text+="[C] Feed"
+		prompt_text+="["+Prefs.action_label("feed")+"] Feed"
 	if data.get("held", "")!="":
-		prompt_text="CARRYING MERCHANDISE  |  G Drop  |  LMB Throw  |  F Sell at the loading bay"
+		prompt_text="CARRYING MERCHANDISE  |  %s Drop  |  %s Throw  |  %s Sell at the loading bay"%[
+			Prefs.action_label("carry"),Prefs.action_label("attack"),Prefs.action_label("use_tool")]
 	carry_clock+=delta
 	if carry_clock>.1:
 		carry_clock=0
@@ -510,7 +522,10 @@ func _process(delta: float) -> void:
 		# truck cab, racecar cockpit) instead of a fixed +1m offset.
 		player.global_position=vehicles[riding].rig.driver_marker.global_position
 		player.velocity=Vector3.ZERO
-		prompt_text="WASD Drive   |   F Dismount   |   Drive to the loading bay to unload"
+		prompt_text="%s%s%s%s Drive   |   %s Dismount   |   Drive to the loading bay to unload"%[
+			Prefs.action_label("move_forward"),Prefs.action_label("move_backward"),
+			Prefs.action_label("move_left"),Prefs.action_label("move_right"),
+			Prefs.action_label("use_tool")]
 		vehicle_clock+=delta
 		if vehicle_clock>.1 and not level.is_camera_input_blocked():
 			vehicle_clock=0
@@ -523,7 +538,7 @@ func _process(delta: float) -> void:
 	else:
 		for kind in vehicles:
 			if kind in campaign.gear and vehicles[kind].node.global_position.distance_to(player.global_position)<3:
-				prompt_text="[F] Drive "+TOOL_NAMES[kind]
+				prompt_text="["+Prefs.action_label("use_tool")+"] Drive "+TOOL_NAMES[kind]
 	if float(data.get("hp",100))<=0:
 		prompt_text="DOWNED - teammates can revive you. Rescue in %ds."%maxi(0,30-int(data.get("down_time",0)))
 	# Diff-guarded assignment: the prompt label only rebuilds when its
@@ -594,31 +609,30 @@ func submit(action: String, argument: String="") -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not local_player() or get_tree().current_scene.main_menu.is_menu_visible():
 		return
-	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode==KEY_ESCAPE and shop_open:
+	if event.is_action_pressed("pause") and shop_open:
 		close_shop()
 		get_viewport().set_input_as_handled()
 		return
 	if get_tree().current_scene.is_camera_input_blocked():
 		return
 	if event is InputEventMouseButton and event.pressed:
-		if event.button_index==MOUSE_BUTTON_LEFT:
+		if event.is_action_pressed("attack"):
 			submit("attack")
-		elif event.button_index==MOUSE_BUTTON_RIGHT:
+		elif event.is_action_pressed("tool_use"):
 			submit("tool")
 	if event is InputEventKey and event.pressed and not event.echo:
-		match event.physical_keycode:
-			KEY_F:
-				if nearest and str(nearest.name)=="Trader":
-					open_shop()
-				else:
-					submit("interact",str(nearest.name) if nearest else "")
-			KEY_Q: submit("cycle")
-			KEY_G: submit("carry")
-			KEY_B: submit("bait")
-			KEY_H: submit("eat")
-			KEY_C: submit("feed")
-			KEY_R: submit("transform")
-			KEY_X: submit("slime")
+		if event.is_action_pressed("use_tool"):
+			if nearest and str(nearest.name)=="Trader":
+				open_shop()
+			else:
+				submit("interact",str(nearest.name) if nearest else "")
+		elif event.is_action_pressed("cycle_tool"): submit("cycle")
+		elif event.is_action_pressed("carry"): submit("carry")
+		elif event.is_action_pressed("bait"): submit("bait")
+		elif event.is_action_pressed("eat"): submit("eat")
+		elif event.is_action_pressed("feed"): submit("feed")
+		elif event.is_action_pressed("transform"): submit("transform")
+		elif event.is_action_pressed("slime"): submit("slime")
 
 @rpc("any_peer","call_local","reliable")
 func request_action(action: String,argument: String,direction: Vector3) -> void:

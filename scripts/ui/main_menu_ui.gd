@@ -3,6 +3,7 @@ extends Control
 
 signal host_pressed(nickname: String, skin: String)
 signal join_pressed(nickname: String, skin: String, address: String)
+signal settings_pressed
 signal quit_pressed
 
 const SKIN_OPTIONS: Array[String] = ["Blue", "Yellow", "Green", "Red"]
@@ -47,6 +48,10 @@ func _on_join_pressed() -> void:
 	var skin = get_skin()
 	var address = address_input.text.strip_edges()
 	join_pressed.emit(nickname, skin, address)
+
+
+func _on_settings_pressed() -> void:
+	settings_pressed.emit()
 
 
 func _on_quit_pressed():

@@ -105,14 +105,19 @@ func _ready() -> void:
 		engine_audio.unit_size = 7.0
 		engine_audio.max_db = -4.0
 		engine_audio.volume_db = -8.0
+		engine_audio.bus = "SFX"
 		# Seamless one-second engine loop per profile kind; the per-frame update
-		# bends pitch and volume from the body's real speed.
+		# bends pitch and volume from the body's real speed. The desired volume
+		# goes into the "vol_base" meta - the wall-occlusion controller owns
+		# the final volume_db (base + occlusion offset).
+		engine_audio.set_meta("vol_base", -8.0)
 		engine_audio.stream = GameAudio.engine_stream(kind)
 		chassis.add_child(engine_audio)
 	impact_audio = AudioStreamPlayer3D.new()
 	impact_audio.name = "ImpactAudio"
 	impact_audio.unit_size = 9.0
 	impact_audio.max_db = -2.0
+	impact_audio.bus = "SFX"
 	impact_audio.stream = GameAudio.stream("crash")
 	chassis.add_child(impact_audio)
 
@@ -160,7 +165,9 @@ func _update_engine_audio(delta: float) -> void:
 	var speed01: float = clampf(absf(_last_forward_speed) / maxf(1.0, float(profile.get("max_forward_speed", 10.0))), 0.0, 1.0)
 	var weight := 1.0 - exp(-delta * 6.0)
 	engine_audio.pitch_scale = lerpf(engine_audio.pitch_scale, 0.9 + speed01 * 0.85, weight)
-	engine_audio.volume_db = lerpf(engine_audio.volume_db, -10.0 + speed01 * 5.0, weight)
+	# Desired volume goes to the meta; the occlusion layer adds its duck on
+	# top and writes the final volume_db.
+	engine_audio.set_meta("vol_base", lerpf(float(engine_audio.get_meta("vol_base")), -10.0 + speed01 * 5.0, weight))
 
 
 ## One-shot crash through the rig's own ImpactAudio hook. The world calls

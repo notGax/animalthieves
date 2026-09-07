@@ -128,6 +128,7 @@ static func play_ui(host: Node, kind: String) -> void:
 	var player := AudioStreamPlayer.new()
 	player.stream = stream(kind)
 	player.volume_db = VOLUME_DB.get(kind, -8.0)
+	player.bus = "SFX"
 	host.add_child(player)
 	player.finished.connect(player.queue_free)
 	player.play()
@@ -139,6 +140,7 @@ static func play_at(host: Node3D, kind: String, at: Vector3) -> void:
 	var player := AudioStreamPlayer3D.new()
 	player.stream = stream(kind)
 	player.volume_db = VOLUME_DB.get(kind, -8.0)
+	player.bus = "SFX"
 	player.unit_size = 8.0
 	player.max_db = -3.0
 	host.add_child(player)
@@ -155,6 +157,7 @@ static func loop_at(host: Node3D, kind: String, at: Vector3, volume_db: float, u
 	player.stream = stream(kind)
 	player.position = at
 	player.volume_db = volume_db
+	player.bus = "Music"
 	player.unit_size = unit_size
 	player.max_db = -4.0
 	host.add_child(player)
