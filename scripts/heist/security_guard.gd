@@ -1,8 +1,8 @@
 extends CharacterBody3D
 ## Server-driven patrol, pursuit, wind-up, charge, stun and boss phases.
-const Visual = preload("res://scripts/heist/slime_visual.gd")
-const Materials = preload("res://scripts/visuals/character_materials.gd")
-const Palette = preload("res://scripts/visuals/palette.gd")
+## The body build itself (species kits, chef, dragon, body-level cosmetics)
+## lives in guard_visuals.gd; this script only animates and drives it.
+const GuardVisuals = preload("res://scripts/heist/guard_visuals.gd")
 const Vfx = preload("res://scripts/visuals/vfx.gd")
 var world: Node3D
 var home := Vector3.ZERO
@@ -104,285 +104,49 @@ func setup(owner_world: Node3D, origin: Vector3, is_boss: bool, species: int) ->
 	add_child(collision)
 	model = Node3D.new()
 	add_child(model)
-	if tier == 3:
-		build_dragon()
-	elif boss and tier == 0:
-		build_chef()
-	else:
-		build_guard(species, 1.5 if boss else 1.0)
-	base_scale = model.scale
-	# Hats keep the position they were built with: _process only ever adds the
-	# stun pop on top of it.
-	if hat:
-		hat_base = hat.position
+	# Everything purely visual - species kits, the chef, the dragon and the
+	# body-level cosmetics - is built by the visual module. This script keeps
+	# only the AI (_physics_process) and the animation driver (_process),
+	# which poses the hook nodes the module hands back.
+	var rig: Dictionary = GuardVisuals.build(self, model, boss, tier)
+	base_scale = rig["base_scale"]
+	torso = rig["torso"]
+	belly = rig["belly"]
+	head = rig["head"]
+	head_base = rig["head_base"]
+	eye_l = rig["eye_l"]
+	eye_r = rig["eye_r"]
+	pupil_l = rig["pupil_l"]
+	pupil_r = rig["pupil_r"]
+	pupil_base_l = rig["pupil_base_l"]
+	pupil_base_r = rig["pupil_base_r"]
+	eye_base_l = rig["eye_base_l"]
+	eye_base_r = rig["eye_base_r"]
+	pupil_scale_l = rig["pupil_scale_l"]
+	pupil_scale_r = rig["pupil_scale_r"]
+	ear_l = rig["ear_l"]
+	ear_r = rig["ear_r"]
+	# assign() converts element-wise, so the hooks dictionary may hand back
+	# the tail as any Array of MeshInstance3D.
+	tail.assign(rig["tail"])
+	hat = rig["hat"]
+	hat_base = rig["hat_base"]
+	torch = rig["torch"]
+	torch_base = rig["torch_base"]
+	mouth = rig["mouth"]
+	ladle = rig["ladle"]
+	ladle_base = rig["ladle_base"]
+	arm_l = rig["arm_l"]
+	arm_r = rig["arm_r"]
+	stars = rig["stars"]
+	bribe_ring = rig["bribe_ring"]
+	bribe_base = rig["bribe_base"]
+	title = rig["title"]
+	aura = rig["aura"]
+	aura_mat = rig["aura_mat"]
+	tell = rig["tell"]
+	tell_mat = rig["tell_mat"]
 	last_vis_pos = origin
-	# Stun stars orbit overhead only while STUNNED; the mold-green halo marks
-	# a bribed guard. Both are cosmetic siblings of the tell ring.
-	stars = Node3D.new()
-	stars.position.y = 5.0 if (boss and tier == 0) else (4.2 if boss else 3.0)
-	add_child(stars)
-	var star_mat := Materials.lit(Color("ffd24a"),1.4)
-	for i in range(3):
-		var star := MeshInstance3D.new()
-		var star_mesh := SphereMesh.new()
-		star_mesh.radius = .14
-		star_mesh.height = .28
-		star_mesh.radial_segments = 8
-		star_mesh.rings = 5
-		star.mesh = star_mesh
-		star.material_override = star_mat
-		stars.add_child(star)
-	stars.visible = false
-	bribe_ring = MeshInstance3D.new()
-	var halo := CylinderMesh.new()
-	halo.top_radius = .9 if boss else .55
-	halo.bottom_radius = halo.top_radius
-	halo.height = .04
-	bribe_ring.mesh = halo
-	bribe_base = 4.6 if (boss and tier == 0) else (3.9 if boss else 2.95)
-	bribe_ring.position.y = bribe_base
-	var halo_mat := StandardMaterial3D.new()
-	halo_mat.albedo_color = Color(.498,.682,.239,.55)
-	halo_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	halo_mat.emission_enabled = true
-	halo_mat.emission = Color(.498,.682,.239)
-	halo_mat.emission_energy_multiplier = 1.2
-	bribe_ring.material_override = halo_mat
-	add_child(bribe_ring)
-	bribe_ring.visible = false
-	title = Label3D.new()
-	title.position.y = 4.5 if boss else 2.6
-	title.font_size = 20
-	title.pixel_size = .008
-	title.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	title.outline_size = 6
-	add_child(title)
-	if boss:
-		# Pulsing aggro aura: a sibling ring of tell, never replacing it.
-		var aura_ring := CylinderMesh.new()
-		aura_ring.top_radius = 2.85
-		aura_ring.bottom_radius = 2.85
-		aura_ring.height = .02
-		aura = MeshInstance3D.new()
-		aura.mesh = aura_ring
-		aura.position.y = .05
-		aura_mat = StandardMaterial3D.new()
-		aura_mat.albedo_color = Color(1,.37,.66,.25)
-		aura_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		aura_mat.emission_enabled = true
-		aura_mat.emission = Color(1,.37,.66)
-		aura_mat.emission_energy_multiplier = 1.1
-		aura.material_override = aura_mat
-		add_child(aura)
-	var ring := CylinderMesh.new()
-	ring.top_radius = 2.6 if boss else 1.2
-	ring.bottom_radius = ring.top_radius
-	ring.height = .025
-	tell = MeshInstance3D.new()
-	tell.mesh = ring
-	tell.position.y = .03
-	tell_mat = StandardMaterial3D.new()
-	tell_mat.albedo_color = Color(1,.25,.08,.38)
-	tell_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	tell_mat.emission_enabled = true
-	tell_mat.emission = Color(1,.12,.015)
-	tell.material_override = tell_mat
-	add_child(tell)
-
-func build_guard(tier: int, scale_factor: float) -> void:
-	## Species-dressed chunky guard: shared sphere base plus a kit per species,
-	## colored from the shared guard palette. The face is a head rig so glances
-	## carry eyes, muzzle and species face parts together.
-	model.scale = Vector3.ONE*scale_factor
-	var skin: Dictionary = Palette.GUARD[tier]
-	var body: Color = Palette.color(skin.body)
-	var cream := Palette.color("fdf3d0")
-	torso = Visual.sphere(model,Vector3(0,.8,0),Vector3(1.25,1.55,.95),body)
-	head = Node3D.new()
-	head_base = Vector3(0,1.72,.08)
-	head.position = head_base
-	model.add_child(head)
-	Visual.sphere(head,Vector3.ZERO,Vector3(1.05,.9,.9),body)
-	Visual.sphere(head,Vector3(0,-.27,-.53),Vector3(.58,.34,.62),Palette.color(skin.belly))
-	for x in [-.264,.264]:
-		var white := Visual.sphere(head,Vector3(x,.1,-.54),Vector3(.26,.28,.13),cream)
-		var pupil := Visual.sphere(head,Vector3(x,.1,-.62),Vector3(.12,.17,.08),Palette.color(skin.pupil))
-		# Dark pupils ride the raised-light-floor face material so the eyes
-		# keep their dot even when the guard stands in a shadow pool.
-		pupil.material_override = Materials.toon_face(Palette.color(skin.pupil))
-		if x < 0.0:
-			eye_l = white
-			eye_base_l = white.scale
-			pupil_l = pupil
-			pupil_base_l = pupil.position
-			pupil_scale_l = pupil.scale
-		else:
-			eye_r = white
-			eye_base_r = white.scale
-			pupil_r = pupil
-			pupil_base_r = pupil.position
-			pupil_scale_r = pupil.scale
-	for x in [-.616,.616]:
-		var arm := Visual.sphere(model,Vector3(x,.9,0),Vector3(.26,.72,.3),body.darkened(.12))
-		if x < 0.0:
-			arm_l = arm
-		else:
-			arm_r = arm
-	Visual.sphere(model,Vector3(-.279,.14,-.1),Vector3(.42,.28,.66),body.darkened(.24))
-	Visual.sphere(model,Vector3(.279,.14,-.1),Vector3(.42,.28,.66),body.darkened(.24))
-	match tier:
-		0:  # Rat: turquoise vest, plum cap with badge, big ears, banded tail, torch.
-			Visual.sphere(model,Vector3(0,1.0,-.48),Vector3(1.02,.82,.5),Palette.color(skin.vest))
-			hat = Node3D.new()
-			hat.position = Vector3(0,2.3,.02)
-			model.add_child(hat)
-			Visual.sphere(hat,Vector3.ZERO,Vector3(.92,.42,.88),Palette.color(skin.cap))
-			Visual.sphere(hat,Vector3(0,-.06,-.46),Vector3(.5,.07,.26),Palette.color(skin.cap).darkened(.1))
-			Visual.sphere(hat,Vector3(.4,.04,0),Vector3(.1,.06,.1),Palette.color(skin.badge))
-			for x in [-.66,.66]:
-				var ear := Node3D.new()
-				ear.position = Vector3(x,.9,-.04)
-				head.add_child(ear)
-				Visual.sphere(ear,Vector3.ZERO,Vector3(.46,.52,.18),Palette.color(skin.ear))
-				Visual.sphere(ear,Vector3(0,0,-.09),Vector3(.3,.36,.12),Palette.color(skin.snout))
-				if x < 0.0:
-					ear_l = ear
-				else:
-					ear_r = ear
-			tail.append(Visual.sphere(model,Vector3(.3,.2,.72),Vector3(.18,.2,1.25),Palette.color(skin.snout)))
-			tail.append(Visual.sphere(model,Vector3(.3,.2,1.0),Vector3(.21,.23,.16),Palette.color(skin.vest).darkened(.2)))
-			torch = Node3D.new()
-			torch_base = Vector3(-.75,1.1,-.35)
-			torch.position = torch_base
-			model.add_child(torch)
-			Visual.sphere(torch,Vector3.ZERO,Vector3(.12,.12,.42),Palette.color(skin.cap))
-			Visual.sphere(torch,Vector3(0,0,-.25),Vector3(.09,.09,.06),Palette.color(skin.badge))
-		1:  # Boar: hard hat, shoulder pads, tusks, hi-vis vest stripe.
-			hat = Node3D.new()
-			hat.position = Vector3(0,2.32,0)
-			model.add_child(hat)
-			Visual.sphere(hat,Vector3.ZERO,Vector3(.85,.4,.8),Palette.color(skin.cap))
-			Visual.sphere(hat,Vector3(0,.12,0),Vector3(.88,.28,.84),Palette.color(skin.cap).darkened(.15))
-			Visual.sphere(hat,Vector3(0,-.02,-.4),Vector3(.55,.06,.3),Palette.color(skin.cap).darkened(.15))
-			for x in [-.78,.78]:
-				Visual.sphere(model,Vector3(x,1.9,.05),Vector3(.42,.3,.5),Palette.color(skin.snout).darkened(.1))
-			Visual.sphere(model,Vector3(0,1.0,-.48),Vector3(1.0,.8,.48),Palette.color(skin.vest))
-			Visual.sphere(model,Vector3(0,1.0,-.72),Vector3(.88,.18,.1),cream)
-			Visual.sphere(head,Vector3(-.28,-.22,-.86),Vector3(.09,.09,.3),Palette.color(skin.tusk))
-			Visual.sphere(head,Vector3(.28,-.22,-.86),Vector3(.09,.09,.3),Palette.color(skin.tusk))
-		2:  # Magpie: glossy wings, conical beak, tail fan, swept crest.
-			for x in [-1.05,1.05]:
-				Visual.sphere(model,Vector3(x,1.15,.12),Vector3(.5,.68,.8),Palette.color(skin.wing))
-				Visual.sphere(model,Vector3(x*1.1,.62,.72),Vector3(.26,.09,.45),Palette.color(skin.wing))
-			Visual.sphere(head,Vector3(0,-.17,-.96),Vector3(.3,.26,.28),Palette.color(skin.beak))
-			Visual.sphere(head,Vector3(0,-.22,-1.16),Vector3(.1,.1,.3),Palette.color(skin.beak).darkened(.15))
-			hat = Node3D.new()
-			hat.position = Vector3(0,2.42,.3)
-			model.add_child(hat)
-			for i in range(3):
-				Visual.sphere(hat,Vector3(-.2+i*.2,-i*.04,0),Vector3(.1,.3,.1),Palette.color(skin.wing))
-			for i in range(3):
-				var side: float = -1.0+i
-				Visual.sphere(model,Vector3(side*.3,.45,.55),Vector3(.2,.08,.6),Palette.color(skin.wing))
-		3:  # Lizard: belly plates, emissive visor, dorsal spikes, claws.
-			var visor := Visual.sphere(head,Vector3(0,.16,-.76),Vector3(.78,.22,.16),Palette.color(skin.visor))
-			visor.material_override = Materials.lit(Palette.color(skin.visor),1.2)
-			for i in range(3):
-				Visual.sphere(model,Vector3(0,1.28-i*.36,-.5),Vector3(.5-i*.08,.12,.3),Palette.color(skin.belly))
-			hat = Node3D.new()
-			hat.position = Vector3(0,2.1,.28)
-			model.add_child(hat)
-			for i in range(4):
-				horn(hat,Vector3(0,-i*.13,-i*.3),.42-i*.06,.12)
-			Visual.sphere(model,Vector3(-.62,.14,-.32),Vector3(.1,.08,.2),cream)
-			Visual.sphere(model,Vector3(.62,.14,-.32),Vector3(.1,.08,.2),cream)
-
-func build_chef() -> void:
-	## THE BIG CHEESE: fat, flour-dusted, mustachioed. Fat-and-short proportions
-	## that stay inside the boss capsule's 2.0 width. Face parts hang off a head
-	## rig so glances and expressions pose the whole face at once.
-	model.scale = Vector3(1.3,1.1,1.3)
-	var skin: Dictionary = Palette.BOSS
-	var body: Color = Palette.color(skin.body)
-	var cream := Palette.color("fdf3d0")
-	torso = Visual.sphere(model,Vector3(0,.62,0),Vector3(1.5,1.35,1.2),body)
-	belly = Visual.sphere(model,Vector3(0,1.5,0),Vector3(1.15,.8,.95),Palette.color(skin.belly))
-	head = Node3D.new()
-	head_base = Vector3(0,2.0,.06)
-	head.position = head_base
-	model.add_child(head)
-	Visual.sphere(head,Vector3.ZERO,Vector3(.95,.8,.85),body)
-	Visual.sphere(head,Vector3(0,-.1,-.56),Vector3(.5,.3,.55),Palette.color(skin.snout))
-	for x in [-.4,.4]:
-		var white := Visual.sphere(head,Vector3(x*.55,.12,-.56),Vector3(.24,.26,.12),cream)
-		var pupil := Visual.sphere(head,Vector3(x*.55,.12,-.64),Vector3(.11,.16,.07),Palette.color("1b2b33"))
-		pupil.material_override = Materials.toon_face(Palette.color("1b2b33"))
-		if x < 0.0:
-			eye_l = white
-			eye_base_l = white.scale
-			pupil_l = pupil
-			pupil_base_l = pupil.position
-			pupil_scale_l = pupil.scale
-		else:
-			eye_r = white
-			eye_base_r = white.scale
-			pupil_r = pupil
-			pupil_base_r = pupil.position
-			pupil_scale_r = pupil.scale
-		var arm := Visual.sphere(model,Vector3(x*1.35,.85,0),Vector3(.3,.75,.32),body.darkened(.12))
-		if x < 0.0:
-			arm_l = arm
-		else:
-			arm_r = arm
-		Visual.sphere(model,Vector3(x*.62,.12,-.05),Vector3(.45,.22,.62),body.darkened(.24))
-	for x in [-.7,.7]:
-		var ear := Node3D.new()
-		ear.position = Vector3(x,.55,-.04)
-		head.add_child(ear)
-		Visual.sphere(ear,Vector3.ZERO,Vector3(.4,.45,.16),Palette.color(skin.ear))
-		if x < 0.0:
-			ear_l = ear
-		else:
-			ear_r = ear
-	# Wobbly tall toque on its own node so _process can sway it: straight
-	# cylinder column under a puffed crown reads as "chef" across the arena,
-	# where the old white sphere stack just read as a lump.
-	hat = Node3D.new()
-	model.add_child(hat)
-	var toque := MeshInstance3D.new()
-	var toque_mesh := CylinderMesh.new()
-	toque_mesh.top_radius=.4
-	toque_mesh.bottom_radius=.32
-	toque_mesh.height=1.2
-	toque_mesh.radial_segments=12
-	toque.mesh=toque_mesh
-	toque.position=Vector3(0,3.32,0)
-	toque.material_override=Materials.toon_part(Palette.color(skin.hat))
-	hat.add_child(toque)
-	Visual.sphere(hat,Vector3(0,3.98,0),Vector3(.9,.42,.84),Palette.color(skin.hat))
-	Visual.sphere(hat,Vector3(0,2.74,0),Vector3(.88,.22,.82),Palette.color(skin.hat_band))
-	Visual.sphere(model,Vector3(0,.9,-.6),Vector3(1.05,1.05,.12),Palette.color(skin.apron))
-	Visual.sphere(model,Vector3(-.35,.9,-.68),Vector3(.05,1.0,.05),Palette.color(skin.strap))
-	Visual.sphere(model,Vector3(.35,.9,-.68),Vector3(.05,1.0,.05),Palette.color(skin.strap))
-	# Mustache rides its own node so inertia and chewing can move it as a unit.
-	# Head-local coordinates: the old model-space spot (0,1.74,-.62) minus
-	# head_base (0,2.0,.06), since this node is parented to the head rig.
-	mouth = Node3D.new()
-	mouth.position = Vector3(0,-.26,-.68)
-	head.add_child(mouth)
-	Visual.sphere(mouth,Vector3.ZERO,Vector3(.52,.16,.14),Palette.color(skin.mustache))
-	# Winged mustache tips curl out to the sides for a stronger face profile.
-	Visual.sphere(mouth,Vector3(-.42,.04,.02),Vector3(.2,.11,.12),Palette.color(skin.mustache))
-	Visual.sphere(mouth,Vector3(.42,.04,.02),Vector3(.2,.11,.12),Palette.color(skin.mustache))
-	Visual.sphere(mouth,Vector3(0,-.18,.06),Vector3(.4,.12,.1),Palette.color(skin.mustache).darkened(.12))
-	Visual.sphere(model,Vector3(0,1.38,-.46),Vector3(.32,.12,.1),Palette.color(skin.hat_band))
-	# Ladle is a group (handle + scoop) so states can raise, drag and flail it.
-	ladle = Node3D.new()
-	ladle_base = Vector3(1.35,1.7,-.2)
-	ladle.position = ladle_base
-	model.add_child(ladle)
-	metal_box(Vector3.ZERO,Vector3(.07,.6,.07),Palette.color(skin.ladle),ladle)
-	Visual.sphere(ladle,Vector3(0,-.36,0),Vector3(.16,.22,.16),Palette.color(skin.ladle))
 
 func _process(delta: float) -> void:
 	visible = hp > 0
@@ -708,72 +472,3 @@ func take_damage(amount: float) -> void:
 	world.alarm=minf(100,world.alarm+8)
 	if hp<=0:
 		world.enemy_defeated(self)
-
-func metal_box(pos: Vector3,size: Vector3,color: Color,parent: Node3D = null) -> MeshInstance3D:
-	var part := MeshInstance3D.new()
-	var mesh := BoxMesh.new()
-	mesh.size=size
-	part.mesh=mesh
-	part.position=pos
-	part.material_override=Materials.metal(color)
-	(parent if parent else model).add_child(part)
-	return part
-
-func horn(parent: Node3D,pos: Vector3,height: float,radius: float) -> void:
-	var part := MeshInstance3D.new()
-	var mesh := CylinderMesh.new()
-	mesh.top_radius=0
-	mesh.bottom_radius=radius
-	mesh.height=height
-	mesh.radial_segments=8
-	part.mesh=mesh
-	part.position=pos
-	part.material_override=Materials.metal(Color("ffd24a"))
-	parent.add_child(part)
-
-func build_dragon() -> void:
-	var steel := Color("1f6b68")
-	var dark := Color("1d1526")
-	var brass := Color("ffd24a")
-	metal_box(Vector3(0,1.1,0),Vector3(1.5,1.6,1.0),steel)
-	metal_box(Vector3(0,1.4,-.56),Vector3(1.1,1.0,.12),brass)
-	metal_box(Vector3(0,1.4,-.65),Vector3(.88,.76,.1),Color("9ef0e4"))
-	# The little lizard is visible through the chest cockpit.
-	Visual.sphere(model,Vector3(0,1.45,-.77),Vector3(.5,.55,.2),Color("8bb86d"))
-	for x in [-.12,.12]:
-		Visual.sphere(model,Vector3(x,1.52,-.89),Vector3(.11,.11,.08),Color("f4e3a6"))
-		Visual.sphere(model,Vector3(x,1.52,-.93),Vector3(.04,.07,.03),dark)
-	metal_box(Vector3(0,2.0,-.3),Vector3(.7,.7,.7),dark)
-	metal_box(Vector3(0,2.3,-.7),Vector3(1.05,.55,1.45),steel)
-	metal_box(Vector3(0,1.94,-.94),Vector3(.92,.17,.93),brass)
-	metal_box(Vector3(0,2.13,-1.38),Vector3(.83,.16,.06),Color("ffd27a"))
-	for x in [-.39,.39]:
-		Visual.sphere(model,Vector3(x,2.43,-1.27),Vector3(.2,.15,.09),Color("ffd27a"))
-		horn(model,Vector3(x,2.97,-.28),.85,.14)
-		metal_box(Vector3(x*1.9,.6,.08),Vector3(.45,1.1,.48),steel)
-		metal_box(Vector3(x*1.9,.12,-.2),Vector3(.65,.25,.85),dark)
-		metal_box(Vector3(x*2.4,1.25,-.16),Vector3(.3,.95,.4),brass)
-		for z in [-.48,-.18]:
-			metal_box(Vector3(x*1.9,.14,z),Vector3(.12,.14,.36),brass)
-	for i in range(5):
-		metal_box(Vector3(0,.72-i*.09,.7+i*.35),Vector3(.48-i*.06,.4-i*.05,.5),steel)
-		horn(model,Vector3(0,1.1-i*.07,.75+i*.35),.34,.13)
-	for side in [-1,1]:
-		var vertices := [Vector3(side*.6,1.9,.35),Vector3(side*2.7,2.8,.5),Vector3(side*2.1,1.4,1.8),Vector3(side*.6,1.9,.35),Vector3(side*2.1,1.4,1.8),Vector3(side*.85,1.25,1.1)]
-		var mesh := ImmediateMesh.new()
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color=Color("1f6b68")
-		mat.metallic=.4
-		mat.cull_mode=BaseMaterial3D.CULL_DISABLED
-		mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES,mat)
-		for i in range(0,6,3):
-			var normal: Vector3=(vertices[i+1]-vertices[i]).cross(vertices[i+2]-vertices[i]).normalized()
-			for j in range(3):
-				mesh.surface_set_normal(normal)
-				mesh.surface_add_vertex(vertices[i+j])
-		mesh.surface_end()
-		var wing := MeshInstance3D.new()
-		wing.mesh=mesh
-		model.add_child(wing)
-		var spar := metal_box(Vector3(side*1.6,2.35,.45),Vector3(2.4,.12,.12),brass)
-		spar.rotation.z=side*.38

@@ -156,7 +156,14 @@ class Scene:
                 p += '\nemission_enabled = true\nemission = %s\nemission_energy_multiplier = 2.2' % c
             self.materials[key] = self.resource('StandardMaterial3D', p)
         return self.materials[key]
-    def box(self, parent, name, pos, size, color, solid=True, glow=False, rotation=None):
+    def box(self, parent, name, pos, size, color, solid=True, glow=False, rotation=None, visual=True):
+        if not visual:
+            # Collision-final slab whose look comes from an authored hero scene
+            # instead of an inline box mesh.
+            body = self.node(name, 'StaticBody3D', parent, 'position = %s\ncollision_layer = 2\ncollision_mask = 0' % vec(pos))
+            shape = self.resource('BoxShape3D', 'size = ' + vec(size))
+            self.node('Collision', 'CollisionShape3D', body, 'shape = ' + shape)
+            return body
         mesh = self.resource('BoxMesh', 'size = ' + vec(size))
         node = self.node(name, 'MeshInstance3D', parent, 'position = %s\nmesh = %s\nmaterial_override = %s' % (vec(pos), mesh, self.mat(color, glow)) + ('\nrotation_degrees = '+vec(rotation) if rotation else ''))
         if solid:
@@ -164,6 +171,17 @@ class Scene:
             shape = self.resource('BoxShape3D', 'size = ' + vec(size))
             self.node('Collision', 'CollisionShape3D', body, 'shape = ' + shape)
         return node
+    def instance(self, parent, name, pos, path, rotation=None):
+        # Drop an authored hero-prop scene in as a visual rig. Collision,
+        # markers, loot spawns and boss dimensions stay in the generator.
+        if not hasattr(self, 'prop_ids'):
+            self.prop_ids = {}
+        pid = self.prop_ids.setdefault(path, 'prop%d' % (len(self.prop_ids) + 1))
+        props = 'position = %s' % vec(pos)
+        if rotation:
+            props += '\nrotation_degrees = ' + vec(rotation)
+        self.nodes.append('[node name="%s" parent="%s" instance=ExtResource("%s")]\n%s\n' % (name, parent, pid, props))
+        return parent + '/' + name
     def cyl(self, parent, name, pos, radius, height, color, rotation=None, glow=False):
         mesh = self.resource('CylinderMesh', 'top_radius = %s\nbottom_radius = %s\nheight = %s\nradial_segments = 12' % (radius, radius, height))
         return self.node(name, 'MeshInstance3D', parent, 'position = %s\nmesh = %s\nmaterial_override = %s' % (vec(pos), mesh, self.mat(color, glow)) + ('\nrotation_degrees = '+vec(rotation) if rotation else ''))
@@ -200,6 +218,9 @@ class Scene:
         self.node(name, 'OmniLight3D', parent, 'position = %s\nlight_color = Color(%s, 1)\nlight_energy = %s\nomni_range = %s\nomni_attenuation = 1.4\nlight_indirect_energy = 1.2%s' % (vec(pos), ','.join(map(str,rgb)), energy, reach, extra))
     def save(self, path, ext=''):
         ext += '[ext_resource type="Shader" path="res://assets/environment/heist/surfaces.gdshader" id="surface"]\n[ext_resource type="Texture2D" path="res://assets/environment/heist/painted_surfaces.png" id="atlas"]\n'
+        if hasattr(self, 'prop_ids'):
+            for prop_path, pid in self.prop_ids.items():
+                ext += '[ext_resource type="PackedScene" path="res://scenes/props/%s.tscn" id="%s"]\n' % (prop_path, pid)
         (ROOT/path).write_text('[gd_scene format=3]\n\n' + ext + '\n' + '\n'.join(self.resources+self.nodes), encoding='utf-8')
 
 s = Scene()
@@ -348,45 +369,19 @@ for aisle,x in enumerate((-10,-3,4)):
             # Upper shelf displays are fixed dressing; lower stock is replicated physics loot.
             s.box(root,'Display'+str(j),(x,2.32,z-2.3+j*1.5),(.65,.4,.65),('bcc66d','9b784b','b58b70')[aisle],False)
     s.text(store,'AisleSign'+str(aisle),(x,3.3,-28),('01 / CULTURED CHEESE','02 / CELLAR SPIRITS','03 / SURVIVAL TINS')[aisle],22,'e5dfad')
-s.box(store,'Checkout',(11,1,-30),(3,2,9),'69523e')
-s.box(store,'CounterTop',(11,2.07,-30),(3.4,.18,9.4),'263c36')
-s.box(store,'Register',(11,2.55,-27),(1,.8,.8),'7b8d7b')
-s.box(store,'RegisterScreen',(11,2.7,-26.56),(.7,.35,.06),'bde899',False,True)
+# Checkout: the solid slab, countertop and register are collision-final; the
+# whole visual set - crooked front bays, counter clutter, hanging board - is
+# the authored checkout_counter hero scene.
+s.box(store,'Checkout',(11,1,-30),(3,2,9),'69523e',visual=False)
+s.box(store,'CounterTop',(11,2.07,-30),(3.4,.18,9.4),'263c36',visual=False)
+s.box(store,'Register',(11,2.55,-27),(1,.8,.8),'7b8d7b',visual=False)
+s.instance(store,'CheckoutHero',(11,0,-30),'checkout_counter')
 for z in (-31,-33):
     stock((11,2.3,z),'stolen_goods')
 sign(store,'CounterSign',(14,4.4,-36),5,'NO REFUNDS','eab180',25)
-# Counter front dressing: the solid slab below is collision-final, so the
-# segmentation is all garnish - crooked wood bays, a kick board, a top rail
-# and two dividing posts that split the long run into three stations.
-for ci,cz in enumerate((-28.2,-30.2,-32.2,-34.0)):
-    s.box(store,'CounterBay'+str(ci),(9.42,1.05,cz),(.08,1.72,1.75),'wood_warm' if ci%2 else 'plum_panel',False,rotation=(0,0,2 if ci==1 else -1.5))
-s.box(store,'CounterKick',(9.45,.28,-30),(.07,.36,9.4),'plum_ink',False)
-s.box(store,'CounterRail',(9.45,1.97,-30),(.09,.15,9.4),'cheese_rind',False)
-s.box(store,'CounterPostA',(9.5,2.6,-30.4),(.18,.95,.22),'wood_dark',False,rotation=(0,0,-2))
-s.box(store,'CounterPostB',(9.5,2.6,-33.6),(.18,.95,.22),'wood_dark',False,rotation=(0,0,3))
-# Checkout clutter: bell, card reader, tip jar, receipt roll, scale, samples.
-s.cyl(store,'BellBase',(9.95,2.2,-28.3),.09,.04,'gold')
-s.sphere(store,'BellDome',(9.95,2.26,-28.3),(.09,.07,.09),'gold')
-s.sphere(store,'BellButton',(9.95,2.32,-28.3),(.03,.03,.03),'steel_dark')
-s.box(store,'CardReader',(9.8,2.25,-29.3),(.22,.16,.14),'steel',False,rotation=(12,0,-8))
-s.cyl(store,'TipJar',(10.15,2.31,-27.8),.1,.26,'turquoise_light')
-s.cyl(store,'TipCoins',(10.15,2.36,-27.8),.07,.06,'gold')
-s.cyl(store,'ReceiptRoll',(11.7,2.27,-28.3),.055,.2,'cream',(0,0,0))
-s.box(store,'ScaleBase',(10.5,2.22,-32.2),(.4,.08,.4),'steel',False)
-s.sphere(store,'ScaleDome',(10.5,2.34,-32.2),(.17,.14,.17),'steel')
-s.box(store,'SampleTray',(10.1,2.2,-33.4),(.55,.05,.4),'wood_warm',False)
-for tj in range(3):
-    s.box(store,'SampleCube'+str(tj),(9.95+tj*.16,2.27,-33.4),(.11,.1,.11),'cheese_yellow',False)
-s.text(store,'SampleTag',(10.1,2.5,-33.4),'FREE SAMPLE*',11,'cream_dim')
-# Hanging checkout board on two cords from the ceiling beam.
-s.box(store,'HangingBoard',(9.4,3.7,-30.2),(1.9,.7,.07),'plum_panel',False,rotation=(0,90,0))
-s.text(store,'HangingBoardText',(9.32,3.7,-30.2),'CHECKOUT',15,'cream',90)
-for hy in (3.95,):
-    s.cyl(store,'BoardCord'+str(hy),(9.4,4.55,-30.6),.02,.75,'steel_dark')
-    s.cyl(store,'BoardCord2'+str(hy),(9.4,4.55,-30.2),.02,.75,'steel_dark')
 for i,z in enumerate((-40,-45)):
-    s.box(store,'Fridge'+str(i),(14.7,1.65,z),(3,3.3,3.8),'a0aaa0')
-    s.box(store,'FridgeInset'+str(i),(13.16,1.8,z),(.08,2.5,3.1),'314c44',False)
+    s.box(store,'Fridge'+str(i),(14.7,1.65,z),(3,3.3,3.8),'a0aaa0',visual=False)
+    s.instance(store,'FridgeHero'+str(i),(14.7,1.65,z),'fridge')
     s.light(store,'FridgeLight'+str(i),(12.6,2,z),'turquoise_light',1.2,5)
 s.box(store,'BackPartition',(-5,2.8,-51),(24,5.6,.4),'56634f')
 s.text(store,'StockroomArrow',(11,3.7,-50.7),'STOCKROOM  >\nKEEP OUT',27,'efc17d')
@@ -523,11 +518,8 @@ sign(cellar,'CellarSign',(0,-7.4,-62.6),20,'JAILHOUSE RESERVE','e1b675',52)
 interact('CellarUp',(10,-11,-41),'Return to the stockroom',(11,1,-53))
 s.text(cellar,'Exit',(10,-9.5,-40.5),'[F] STOCKROOM',25)
 for i,x in enumerate((-9,-2,5)):
-    s.cyl(cellar,'Still'+str(i),(x,-9.8,-55),2,3.8,'a27b48')
-    s.box(cellar,'StillCollision'+str(i),(x,-10,-55),(3.3,3.8,3.3),'a27b48')
-    s.cyl(cellar,'StillNeck'+str(i),(x,-7.4,-55),.35,1.4,'bd9153')
-    s.cyl(cellar,'PressurePipe'+str(i),(x,-6.8,-50),.18,10,'bd9153',(90,0,0))
-    s.cyl(cellar,'Valve'+str(i),(x,-9.3,-52.8),.4,.12,'913e37',(90,0,0))
+    s.box(cellar,'StillCollision'+str(i),(x,-10,-55),(3.3,3.8,3.3),'a27b48',visual=False)
+    s.instance(cellar,'StillHero'+str(i),(x,-10,-55),'distillery_still')
     s.text(cellar,'TankLabel'+str(i),(x,-9.5,-52.65),'BATCH 0%d\n140 PROOF'%(i+1),20)
 for i in range(6):
     barrel(cellar,'Reserve'+str(i),(-11+i*2,-11.2,-43))
@@ -681,9 +673,7 @@ for wx in (-10,10):
     s.box(store,'FrontWainscot'+str(wx),(wx,.7,-21.77),(14,.4,.08),'turquoise_deep',False)
 # Six hanging cone lamps, one above every shop light.
 for lx,lz in [(-8,-30),(8,-30),(-8,-42),(8,-42),(-8,-55),(8,-55)]:
-    s.cyl(store,'LampCord%s%s'%(lx,lz),(lx,5.5,lz),.03,.55,'steel_dark')
-    s.cyl(store,'LampCone%s%s'%(lx,lz),(lx,5.08,lz),.5,.42,'plum_panel')
-    s.sphere(store,'LampBulb%s%s'%(lx,lz),(lx,4.86,lz),(.16,.2,.16),'amber_hot',True)
+    s.instance(store,'LampHero%s%s'%(lx,lz),(lx,5.5,lz),'hanging_lamp')
 # Crooked hanging aisle boards break up the flat ceiling line and give the
 # floor plan readable landmarks. Each hangs from a pivot node so the shared
 # store animator can pendulum them; positions are fixed - no rng here.
@@ -716,13 +706,9 @@ for sy in (1.5,2.6):
     for j in range(5):
         s.cyl(store,'Bottle%s%s'%(sy,j),(16.45,sy+.25,-33-j*.85),.11,.42,'moonshine_pink' if j%2 else 'moonshine_purple')
 s.light(store,'MoonshineLight',(15.8,2.4,-35),'moonshine_pink',.9,4)
-# Fridge shelves and canned goods seen through the glass.
+# Fridge fans spin behind the glass; the shared store animator drives them.
+# (Shelves and cans are part of the authored fridge hero scene.)
 for i,z in enumerate((-40,-45)):
-    for sy in (1.3,2.1):
-        s.box(store,'FridgeShelf%s%s'%(i,sy),(13.2,sy,z),(.06,.05,2.9),'steel',False)
-        for j in range(4):
-            s.cyl(store,'FridgeCan%s%s%s'%(i,sy,j),(13.2,sy+.2,z-1.2+j*.8),.1,.3,('steel','turquoise','cheese_pale','steel')[j])
-    # Fridge fans spin behind the glass; the shared store animator drives them.
     fridge_fan=s.node('FridgeFan%s'%i,'Node3D',store,'position = %s'%vec((13.45,2.86,z)))
     s.cyl(fridge_fan,'FanMotor%s'%i,(0,0,0),.12,.1,'steel_dark',(0,0,90))
     s.box(fridge_fan,'FanWingA',(0,0,0),(.05,.42,.05),'steel',False)
@@ -738,12 +724,12 @@ s.text(store,'TagDeal',(4,2.6,-28.2),'2 FOR 1',15,'cheese_yellow')
 for pi,(px,py,pz,kind,yaw) in enumerate([(-16.68,3,-30,0,90),(16.68,3,-33,2,-90),
         (-16.68,3,-44,1,90),(16.68,3,-47,3,-90),(-8,2.3,-50.78,0,0),(-4,2.3,-50.78,2,0)]):
     s.poster(store,'ExtraPoster'+str(pi),(px,py,pz),kind,2.2,yaw)
-# Aisle end-caps: plum panels with a glowing cheese stripe.
+# Aisle end-caps: authored gondola ends; the per-aisle label text stays here
+# because it differs per aisle.
 for aisle,x in enumerate((-10,-3,4)):
     for ez in (-35.7,-45.7):
-        s.box(store,'EndCap%s%s'%(aisle,ez),(x,1.15,ez),(2.4,2.3,.12),'plum_panel',False)
-        s.box(store,'EndCapStripe%s%s'%(aisle,ez),(x,2.1,ez),(2.4,.2,.14),'cheese_yellow',False,True)
-        s.text(store,'EndCapLabel%s%s'%(aisle,ez),(x,2.62,ez-.08),('CHEESE','SPIRITS','TINS')[aisle],15,'cream')
+        s.instance(store,'EndCapHero%s%s'%(aisle,ez),(x,1.15,ez),'shelf_endcap')
+        s.text(store,'EndCapLabel%s%s'%(aisle,ez),(x,2.62,ez-.08),('CHEESE','SPIRITS','TINS')[aisle],15,'cream',180)
 # Worn walk-path stripes guiding customers to the arena.
 for pz in range(-24,-60,-3):
     s.box(store,'PathStripe'+str(pz),(.5,.015,pz),(3,.018,1.4),'cream_dim',False,rotation=(0,.6 if pz%2 else -.4,0))
@@ -803,19 +789,11 @@ for bx in (-2.4,-.8,.8,2.4):
     s.cyl(store,'Burner'+str(bx),(bx,.9,-79.45),.45,.08,'ember',glow=True)
     s.sphere(flames,'Flame'+str(bx),(bx,1.08,-79.45),(.22,.35,.22),'amber_hot',True)
 s.box(store,'StoveGrate',(0,2.5,-79.5),(7,.15,.4),'steel_dark',False)
-s.box(store,'VaultFrame',(9,1.6,-79.85),(3.6,3.6,.15),'steel_dark',False)
-s.cyl(store,'VaultDoor',(9,1.6,-79.7),1.5,.2,'gold',(90,0,0))
-for ri in range(8):
-    s.sphere(store,'VaultRivet'+str(ri),(9+1.28*(.707 if ri%2 else (1 if ri<4 else 0)),1.6+1.28*(.707 if ri%2 else (0 if ri<2 or ri>5 else 0)),-79.56),(.07,.07,.07),'steel_dark')
-s.cyl(store,'VaultWheel',(9,1.6,-79.54),.4,.1,'steel_dark',(90,0,0))
-for sa in (0,60,120):
-    s.box(store,'VaultSpoke'+str(sa),(9,1.6,-79.5),(.08,.8,.07),'steel_dark',False,rotation=(0,0,sa))
+# Recipe vault: the whole door assembly is the authored recipe_vault scene.
+s.instance(store,'VaultHero',(9,1.6,-79.8),'recipe_vault')
 
-# Distillery garnish: glow rings on the stills, bottle shelf, purple puddle,
-# ceiling pipes with drip legs.
-for x in (-9,-2,5):
-    s.cyl(cellar,'ValveGlow'+str(x),(x,-9.3,-52.7),.52,.06,'neon_pink',(90,0,0),True)
-    s.cyl(cellar,'StillBand'+str(x),(x,-10.6,-55),2.06,.28,'moonshine_purple',glow=True)
+# Distillery garnish: bottle shelf, purple puddle, ceiling pipes with drip
+# legs. (Still glow bands and valve rings are part of the still scene.)
 s.box(cellar,'BottleShelf',(0,-10.2,-62.4),(10,.1,.9),'wood_warm',False)
 for j in range(7):
     s.cyl(cellar,'ReserveBottle'+str(j),(-4.5+j*1.5,-9.9,-62.4),.1,.4,'moonshine_pink' if j%2 else 'moonshine_purple',glow=True)
@@ -846,20 +824,49 @@ s.node('LobbyPreview','Camera3D','.', 'position = Vector3(31, 22, 26)\nrotation_
 s.save(Path('scenes/level/heist_world.tscn'),'[ext_resource type="Script" path="res://scripts/level/heist_world.gd" id="world"]\n[ext_resource type="Texture2D" path="res://assets/environment/heist/shop_posters.png" id="posters"]\n[ext_resource type="Script" path="res://scripts/level/store_motion.gd" id="motion"]\n')
 
 # Physics merchandise scenes, registered with the existing MultiplayerSpawner.
-for item,color,shape in [('rotten_cheese','c5ce69','cheese'),('moonshine','899d70','bottle'),('canned_food','9aa3ab','can'),('stolen_goods','d5b565','box')]:
+# Same RigidBody3D contract as always (collision box + replication config);
+# the visuals get a small authored pass: a rinded, mould-flecked cheese
+# wedge, a glass jug with glowing hooch, a riveted tin with a pull tab, and
+# a strapped parcel stamped LOOT. Raw hexes keep these on flat toy materials
+# (the world atlas shader is tuned for architecture, not hand-held props).
+for item,shape in [('rotten_cheese','cheese'),('moonshine','bottle'),('canned_food','can'),('stolen_goods','parcel')]:
     t=Scene()
     t.node(item.title().replace('_',''),'RigidBody3D',props='collision_layer = 4\ncollision_mask = 31\nlinear_damp = 1.0\nangular_damp = 1.0\nscript = ExtResource("item")\nitem_id = "%s"'%item)
-    if shape in ('bottle','can'):
-        t.cyl('.','Product',(0,.3,0),.22,.6,color)
-        t.cyl('.','Label',(0,.3,0),.225,.25,'d7cfab')
-        if shape=='bottle':
-            t.cyl('.','Neck',(0,.7,0),.09,.25,color)
-            t.cyl('.','Cork',(0,.84,0),.1,.08,'8e6541')
+    if shape=='bottle':
+        # Glass jug: saturated translucent shell so the glass reads as glass,
+        # hooch filled high enough to show above the short paper label.
+        shell=t.resource('CylinderMesh','top_radius = 0.22\nbottom_radius = 0.24\nheight = 0.6\nradial_segments = 12')
+        glass=t.resource('StandardMaterial3D','transparency = 1\nalbedo_color = Color(0.36, 0.66, 0.58, 0.5)\nroughness = 0.1')
+        t.node('Product','MeshInstance3D','.','position = %s\nmesh = %s\nmaterial_override = %s'%(vec((0,.3,0)),shell,glass))
+        t.cyl('.','Liquid',(0,.28,0),.19,.52,'e56ba0',glow=True)
+        t.cyl('.','Label',(0,.33,0),.226,.15,'cream')
+        t.cyl('.','LabelStripe',(0,.375,0),.227,.045,'plum_panel')
+        t.node('Neck','MeshInstance3D','.','position = %s\nmesh = %s\nmaterial_override = %s'%(vec((0,.7,0)),t.resource('CylinderMesh','top_radius = 0.09\nbottom_radius = 0.13\nheight = 0.25\nradial_segments = 12'),glass))
+        t.cyl('.','Cork',(0,.84,0),.1,.08,'7a5230')
+    elif shape=='can':
+        t.cyl('.','Product',(0,.3,0),.22,.6,'9aa3ab')
+        # Rolled tin rims plus a store-brand stripe and a pull tab.
+        t.cyl('.','RimTop',(0,.575,0),.235,.05,'c3cad2')
+        t.cyl('.','RimBottom',(0,.025,0),.235,.05,'c3cad2')
+        t.cyl('.','Label',(0,.3,0),.225,.25,'cream')
+        t.cyl('.','LabelStripe',(0,.4,0),.226,.07,'3fa8a0')
+        t.box('.','PullTab',(0.09,.615,0),(.12,.02,.05),'gold',False)
+    elif shape=='cheese':
+        # Pale butter body with a waxy rind as a TOP slab and back wall, so
+        # the yellow reads first; mould is squashed patches hugging surfaces,
+        # not raised balls (which read as peas on a box).
+        t.box('.','Product',(0,.2,0),(.65,.4,.5),'f6dd8a',False)
+        t.box('.','RindTop',(0,.415,-.02),(.67,.07,.54),'b06a2e',False)
+        t.box('.','RindBack',(0,.2,-.245),(.67,.42,.08),'b06a2e',False)
+        for i,(x,z,rx,rz) in enumerate(((-.18,.08,.14,.11),(.14,-.08,.17,.13),(.02,.18,.1,.09))):
+            t.sphere('.','Mould'+str(i),(x,.44,z),(rx,.045,rz),'6f9c33')
+        t.sphere('.','MouldSide',(-.33,.28,-.1),(.06,.1,.13),'6f9c33')
     else:
-        t.box('.','Product',(0,.2,0),(.65,.4,.5),color,False)
-        if shape=='cheese':
-            for i,(x,z) in enumerate(((-.2,0),(.1,.13),(.15,-.15))):
-                t.cyl('.','Mould'+str(i),(x,.408,z),.07,.01,'7d9348')
+        # Stolen goods travel as a strapped kraft parcel with a LOOT stamp.
+        t.box('.','Product',(0,.2,0),(.65,.4,.5),'c9a86a',False)
+        t.box('.','StrapZ',(0,.2,0),(.68,.43,.08),'2b2138',False)
+        t.box('.','StrapX',(0,.2,0),(.08,.43,.52),'2b2138',False)
+        t.box('.','Stamp',(0,.205,.26),(.24,.16,.02),'gold',False)
     collision=t.resource('BoxShape3D','size = Vector3(0.65, 0.8, 0.5)')
     t.node('Collision','CollisionShape3D','.', 'position = Vector3(0, 0.4, 0)\nshape = '+collision)
     config=t.resource('SceneReplicationConfig','properties/0/path = NodePath(".:position")\nproperties/0/spawn = true\nproperties/0/replication_mode = 2\nproperties/1/path = NodePath(".:rotation")\nproperties/1/spawn = true\nproperties/1/replication_mode = 2\nproperties/2/path = NodePath(".:carried_by")\nproperties/2/spawn = true\nproperties/2/replication_mode = 2')

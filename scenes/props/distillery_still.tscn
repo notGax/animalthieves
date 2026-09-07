@@ -1,0 +1,236 @@
+[gd_scene format=3]
+
+[sub_resource type="StandardMaterial3D" id="copper"]
+albedo_color = Color(0.71, 0.478, 0.165, 1)
+roughness = 0.5
+metallic = 0.45
+
+[sub_resource type="StandardMaterial3D" id="copper_pale"]
+albedo_color = Color(0.78, 0.58, 0.32, 1)
+roughness = 0.5
+metallic = 0.45
+
+[sub_resource type="StandardMaterial3D" id="steel_dark"]
+albedo_color = Color(0.29, 0.322, 0.353, 1)
+roughness = 0.55
+metallic = 0.4
+
+[sub_resource type="StandardMaterial3D" id="band"]
+albedo_color = Color(0.541, 0.31, 0.749, 1)
+roughness = 0.6
+emission_enabled = true
+emission = Color(0.541, 0.31, 0.749, 1)
+emission_energy_multiplier = 2.2
+
+[sub_resource type="StandardMaterial3D" id="valve_pink"]
+albedo_color = Color(1, 0.373, 0.659, 1)
+roughness = 0.5
+emission_enabled = true
+emission = Color(1, 0.373, 0.659, 1)
+emission_energy_multiplier = 2.2
+
+[sub_resource type="StandardMaterial3D" id="cream"]
+albedo_color = Color(0.992, 0.953, 0.816, 1)
+roughness = 0.8
+
+[sub_resource type="CylinderMesh" id="pot"]
+top_radius = 2.0
+bottom_radius = 2.0
+height = 3.8
+radial_segments = 20
+
+[sub_resource type="CylinderMesh" id="base_ring"]
+top_radius = 2.1
+bottom_radius = 2.14
+height = 0.4
+radial_segments = 20
+
+[sub_resource type="CylinderMesh" id="glow_band"]
+top_radius = 2.06
+bottom_radius = 2.06
+height = 0.28
+radial_segments = 20
+
+[sub_resource type="CylinderMesh" id="rivet_band"]
+top_radius = 2.02
+bottom_radius = 2.02
+height = 0.07
+radial_segments = 20
+
+[sub_resource type="SphereMesh" id="dome"]
+radius = 1.0
+height = 2.0
+radial_segments = 20
+rings = 10
+
+[sub_resource type="CylinderMesh" id="neck"]
+top_radius = 0.35
+bottom_radius = 0.35
+height = 1.4
+radial_segments = 12
+
+[sub_resource type="CylinderMesh" id="pipe"]
+top_radius = 0.18
+bottom_radius = 0.18
+height = 10.0
+radial_segments = 10
+
+[sub_resource type="CylinderMesh" id="flange"]
+top_radius = 0.26
+bottom_radius = 0.26
+height = 0.14
+radial_segments = 10
+
+[sub_resource type="CylinderMesh" id="wheel"]
+top_radius = 0.4
+bottom_radius = 0.4
+height = 0.12
+radial_segments = 14
+
+[sub_resource type="CylinderMesh" id="glow_ring"]
+top_radius = 0.52
+bottom_radius = 0.52
+height = 0.06
+radial_segments = 14
+
+[sub_resource type="CylinderMesh" id="gauge_body"]
+top_radius = 0.2
+bottom_radius = 0.2
+height = 0.08
+radial_segments = 12
+
+[sub_resource type="CylinderMesh" id="gauge_face"]
+top_radius = 0.15
+bottom_radius = 0.15
+height = 0.02
+radial_segments = 12
+
+[sub_resource type="BoxMesh" id="unit_box"]
+size = Vector3(1, 1, 1)
+
+[node name="DistilleryStill" type="Node3D"]
+
+[node name="BaseRing" type="MeshInstance3D" parent="."]
+position = Vector3(0, -1.72, 0)
+mesh = SubResource("base_ring")
+material_override = SubResource("steel_dark")
+
+[node name="Pot" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.18, 0)
+mesh = SubResource("pot")
+material_override = SubResource("copper")
+
+[node name="MoonshineBand" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.6, 0)
+mesh = SubResource("glow_band")
+material_override = SubResource("band")
+
+[node name="RivetBandLow" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.1, 0)
+mesh = SubResource("rivet_band")
+material_override = SubResource("steel_dark")
+
+[node name="RivetBandHigh" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.35, 0)
+mesh = SubResource("rivet_band")
+material_override = SubResource("steel_dark")
+
+[node name="Dome" type="MeshInstance3D" parent="."]
+position = Vector3(0, 2.08, 0)
+scale = Vector3(1.95, 0.85, 1.95)
+mesh = SubResource("dome")
+material_override = SubResource("copper")
+
+[node name="DomeCap" type="MeshInstance3D" parent="."]
+position = Vector3(0, 2.72, 0)
+scale = Vector3(1.0, 0.36, 1.0)
+mesh = SubResource("dome")
+material_override = SubResource("copper_pale")
+
+[node name="Neck" type="MeshInstance3D" parent="."]
+position = Vector3(0, 2.6, 0)
+mesh = SubResource("neck")
+material_override = SubResource("copper_pale")
+
+[node name="SwanNeck" type="MeshInstance3D" parent="."]
+position = Vector3(0, 3.05, 0.45)
+rotation_degrees = Vector3(55, 0, 0)
+scale = Vector3(0.8, 1.1, 0.8)
+mesh = SubResource("neck")
+material_override = SubResource("copper_pale")
+
+[node name="PressurePipe" type="MeshInstance3D" parent="."]
+position = Vector3(0, 3.2, 5)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("pipe")
+material_override = SubResource("copper_pale")
+
+[node name="PipeFlangeNear" type="MeshInstance3D" parent="."]
+position = Vector3(0, 3.2, 1.8)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("flange")
+material_override = SubResource("steel_dark")
+
+[node name="PipeFlangeFar" type="MeshInstance3D" parent="."]
+position = Vector3(0, 3.2, 8.2)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("flange")
+material_override = SubResource("steel_dark")
+
+[node name="ValveStem" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.7, 2.24)
+rotation_degrees = Vector3(90, 0, 0)
+scale = Vector3(0.2, 0.35, 0.2)
+mesh = SubResource("wheel")
+material_override = SubResource("steel_dark")
+
+[node name="ValveWheel" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.7, 2.2)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("wheel")
+material_override = SubResource("valve_pink")
+
+[node name="ValveGlowRing" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.7, 2.3)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("glow_ring")
+material_override = SubResource("valve_pink")
+
+[node name="GaugeBody" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.5, 2.0)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("gauge_body")
+material_override = SubResource("steel_dark")
+
+[node name="GaugeFace" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.5, 2.05)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("gauge_face")
+material_override = SubResource("copper_pale")
+
+[node name="GaugeNeedle" type="MeshInstance3D" parent="."]
+position = Vector3(0.01, 1.53, 2.07)
+rotation_degrees = Vector3(0, 0, 35)
+scale = Vector3(0.025, 0.14, 0.01)
+mesh = SubResource("unit_box")
+material_override = SubResource("valve_pink")
+
+[node name="Spout" type="MeshInstance3D" parent="."]
+position = Vector3(0, -1.15, 2.02)
+rotation_degrees = Vector3(50, 0, 0)
+scale = Vector3(0.6, 1.0, 0.6)
+mesh = SubResource("neck")
+material_override = SubResource("steel_dark")
+
+[node name="Hatch" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.55, 2.0)
+scale = Vector3(0.35, 0.35, 0.12)
+mesh = SubResource("dome")
+material_override = SubResource("copper_pale")
+
+[node name="HatchClamp" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.55, 2.09)
+rotation_degrees = Vector3(0, 0, 40)
+scale = Vector3(0.06, 0.2, 0.03)
+mesh = SubResource("unit_box")
+material_override = SubResource("steel_dark")

@@ -64,11 +64,8 @@ var was_gesturing := false
 var throw_punch := 0.0
 
 static func sphere(parent: Node3D, pos: Vector3, size: Vector3, color: Color) -> MeshInstance3D:
-	var mesh := SphereMesh.new()
-	mesh.radial_segments = 12
-	mesh.rings = 7
 	var instance := MeshInstance3D.new()
-	instance.mesh = mesh
+	instance.mesh = Materials.sphere_mesh(12, 7)
 	instance.position = pos
 	instance.scale = size
 	# Character parts share the slime body's banded toon shading; vehicles and
@@ -80,11 +77,8 @@ static func sphere(parent: Node3D, pos: Vector3, size: Vector3, color: Color) ->
 static func sphere_hq(parent: Node3D, pos: Vector3, size: Vector3, color: Color, wobble := 0.0) -> MeshInstance3D:
 	## Hero-quality body sphere: denser mesh and a per-body slime shader with
 	## its own flash/wobble channels.
-	var mesh := SphereMesh.new()
-	mesh.radial_segments = 24
-	mesh.rings = 14
 	var instance := MeshInstance3D.new()
-	instance.mesh = mesh
+	instance.mesh = Materials.sphere_mesh(24, 14)
 	instance.position = pos
 	instance.scale = size
 	instance.material_override = Materials.unique(color, wobble)

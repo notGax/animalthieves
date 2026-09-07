@@ -3,6 +3,7 @@ extends Node3D
 const MAX_CHAT_MESSAGE_LENGTH := 160
 const MIN_NICKNAME_HEIGHT := 2.0
 const MAX_NICKNAME_HEIGHT := 8.0
+const GameAudio = preload("res://scripts/audio/game_audio.gd")
 
 @export var player_scene: PackedScene
 @export var auto_start_headless_server := true
@@ -39,6 +40,10 @@ func _ready():
 	pause_menu.resume_pressed.connect(_on_pause_resume_pressed)
 	pause_menu.main_menu_pressed.connect(_on_pause_main_menu_pressed)
 	pause_menu.quit_pressed.connect(_on_pause_quit_pressed)
+	# UI-layer click for every menu commit; the synthesis lives in GameAudio.
+	for button_signal in [main_menu.host_pressed, main_menu.join_pressed, main_menu.quit_pressed,
+			pause_menu.resume_pressed, pause_menu.main_menu_pressed, pause_menu.quit_pressed]:
+		button_signal.connect(_play_menu_click)
 
 	if inventory_ui:
 		inventory_ui.inventory_closed.connect(_on_inventory_closed)
@@ -186,6 +191,12 @@ func _on_quit_pressed() -> void:
 	$Environment/HeistWorld.save_campaign()
 	Network.leave_game()
 	get_tree().quit()
+
+
+## UI-layer click shared by every menu commit signal (they carry different
+## argument counts; extra signal args are simply dropped).
+func _play_menu_click(_a=null,_b=null,_c=null) -> void:
+	GameAudio.play_ui(self,"click")
 
 
 func toggle_chat():

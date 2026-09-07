@@ -6,47 +6,68 @@
 
 [sub_resource type="CylinderMesh" id="r1"]
 top_radius = 0.22
-bottom_radius = 0.22
+bottom_radius = 0.24
 height = 0.6
 radial_segments = 12
 
 [sub_resource type="StandardMaterial3D" id="r2"]
-albedo_color = Color(0.5412, 0.3098, 0.749, 1)
-roughness = 0.82
+transparency = 1
+albedo_color = Color(0.36, 0.66, 0.58, 0.5)
+roughness = 0.1
 
 [sub_resource type="CylinderMesh" id="r3"]
-top_radius = 0.225
-bottom_radius = 0.225
-height = 0.25
+top_radius = 0.19
+bottom_radius = 0.19
+height = 0.52
 radial_segments = 12
 
 [sub_resource type="StandardMaterial3D" id="r4"]
+albedo_color = Color(0.898, 0.4196, 0.6275, 1)
+roughness = 0.82
+emission_enabled = true
+emission = Color(0.898, 0.4196, 0.6275, 1)
+emission_energy_multiplier = 2.2
+
+[sub_resource type="CylinderMesh" id="r5"]
+top_radius = 0.226
+bottom_radius = 0.226
+height = 0.15
+radial_segments = 12
+
+[sub_resource type="StandardMaterial3D" id="r6"]
 albedo_color = Color(0.9922, 0.9529, 0.8157, 1)
 roughness = 0.82
 
-[sub_resource type="CylinderMesh" id="r5"]
+[sub_resource type="CylinderMesh" id="r7"]
+top_radius = 0.227
+bottom_radius = 0.227
+height = 0.045
+radial_segments = 12
+
+[sub_resource type="StandardMaterial3D" id="r8"]
+albedo_color = Color(0.1686, 0.1294, 0.2196, 1)
+roughness = 0.82
+
+[sub_resource type="CylinderMesh" id="r9"]
 top_radius = 0.09
-bottom_radius = 0.09
+bottom_radius = 0.13
 height = 0.25
 radial_segments = 12
 
-[sub_resource type="CylinderMesh" id="r6"]
+[sub_resource type="CylinderMesh" id="r10"]
 top_radius = 0.1
 bottom_radius = 0.1
 height = 0.08
 radial_segments = 12
 
-[sub_resource type="ShaderMaterial" id="r7"]
-shader = ExtResource("surface")
-shader_parameter/atlas = ExtResource("atlas")
-shader_parameter/surface_kind = 2
-shader_parameter/tile_size = 4.0
-shader_parameter/tint = Color(0.759, 0.585, 0.52, 1)
+[sub_resource type="StandardMaterial3D" id="r11"]
+albedo_color = Color(0.4784, 0.3216, 0.1882, 1)
+roughness = 0.82
 
-[sub_resource type="BoxShape3D" id="r8"]
+[sub_resource type="BoxShape3D" id="r12"]
 size = Vector3(0.65, 0.8, 0.5)
 
-[sub_resource type="SceneReplicationConfig" id="r9"]
+[sub_resource type="SceneReplicationConfig" id="r13"]
 properties/0/path = NodePath(".:position")
 properties/0/spawn = true
 properties/0/replication_mode = 2
@@ -70,24 +91,34 @@ position = Vector3(0, 0.3, 0)
 mesh = SubResource("r1")
 material_override = SubResource("r2")
 
-[node name="Label" type="MeshInstance3D" parent="."]
-position = Vector3(0, 0.3, 0)
+[node name="Liquid" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.28, 0)
 mesh = SubResource("r3")
 material_override = SubResource("r4")
 
+[node name="Label" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.33, 0)
+mesh = SubResource("r5")
+material_override = SubResource("r6")
+
+[node name="LabelStripe" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.375, 0)
+mesh = SubResource("r7")
+material_override = SubResource("r8")
+
 [node name="Neck" type="MeshInstance3D" parent="."]
 position = Vector3(0, 0.7, 0)
-mesh = SubResource("r5")
+mesh = SubResource("r9")
 material_override = SubResource("r2")
 
 [node name="Cork" type="MeshInstance3D" parent="."]
 position = Vector3(0, 0.84, 0)
-mesh = SubResource("r6")
-material_override = SubResource("r7")
+mesh = SubResource("r10")
+material_override = SubResource("r11")
 
 [node name="Collision" type="CollisionShape3D" parent="."]
 position = Vector3(0, 0.4, 0)
-shape = SubResource("r8")
+shape = SubResource("r12")
 
 [node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
-replication_config = SubResource("r9")
+replication_config = SubResource("r13")

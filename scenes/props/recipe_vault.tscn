@@ -1,0 +1,196 @@
+[gd_scene format=3]
+
+[sub_resource type="StandardMaterial3D" id="frame"]
+albedo_color = Color(0.29, 0.322, 0.353, 1)
+roughness = 0.55
+metallic = 0.45
+
+[sub_resource type="StandardMaterial3D" id="inner"]
+albedo_color = Color(0.114, 0.082, 0.141, 1)
+roughness = 0.85
+
+[sub_resource type="StandardMaterial3D" id="gold"]
+albedo_color = Color(1, 0.824, 0.29, 1)
+roughness = 0.3
+metallic = 0.85
+
+[sub_resource type="StandardMaterial3D" id="steel"]
+albedo_color = Color(0.604, 0.639, 0.671, 1)
+roughness = 0.5
+metallic = 0.4
+
+[sub_resource type="StandardMaterial3D" id="placard"]
+albedo_color = Color(0.169, 0.129, 0.22, 1)
+roughness = 0.82
+
+[sub_resource type="CylinderMesh" id="door"]
+top_radius = 1.5
+bottom_radius = 1.5
+height = 0.2
+radial_segments = 24
+
+[sub_resource type="TorusMesh" id="door_ring"]
+inner_radius = 1.02
+outer_radius = 1.16
+rings = 24
+ring_segments = 12
+
+[sub_resource type="CylinderMesh" id="wheel"]
+top_radius = 0.4
+bottom_radius = 0.4
+height = 0.1
+radial_segments = 14
+
+[sub_resource type="SphereMesh" id="unit_sphere"]
+radius = 1.0
+height = 2.0
+radial_segments = 14
+rings = 8
+
+[sub_resource type="BoxMesh" id="unit_box"]
+size = Vector3(1, 1, 1)
+
+[node name="RecipeVault" type="Node3D"]
+
+[node name="Frame" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, -0.05)
+scale = Vector3(3.6, 3.6, 0.15)
+mesh = SubResource("unit_box")
+material_override = SubResource("frame")
+
+[node name="FrameLip" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, 0.03)
+scale = Vector3(3.2, 3.2, 0.06)
+mesh = SubResource("unit_box")
+material_override = SubResource("inner")
+
+[node name="Door" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, 0.15)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("door")
+material_override = SubResource("gold")
+
+[node name="DoorRing" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, 0.24)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("door_ring")
+material_override = SubResource("frame")
+
+[node name="Rivet0" type="MeshInstance3D" parent="."]
+position = Vector3(1.28, 0, 0.29)
+scale = Vector3(0.07, 0.07, 0.07)
+mesh = SubResource("unit_sphere")
+material_override = SubResource("frame")
+
+[node name="Rivet1" type="MeshInstance3D" parent="."]
+position = Vector3(0.905, 0.905, 0.29)
+scale = Vector3(0.07, 0.07, 0.07)
+mesh = SubResource("unit_sphere")
+material_override = SubResource("frame")
+
+[node name="Rivet2" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.28, 0.29)
+scale = Vector3(0.07, 0.07, 0.07)
+mesh = SubResource("unit_sphere")
+material_override = SubResource("frame")
+
+[node name="Rivet3" type="MeshInstance3D" parent="."]
+position = Vector3(-0.905, 0.905, 0.29)
+scale = Vector3(0.07, 0.07, 0.07)
+mesh = SubResource("unit_sphere")
+material_override = SubResource("frame")
+
+[node name="Rivet4" type="MeshInstance3D" parent="."]
+position = Vector3(-1.28, 0, 0.29)
+scale = Vector3(0.07, 0.07, 0.07)
+mesh = SubResource("unit_sphere")
+material_override = SubResource("frame")
+
+[node name="Rivet5" type="MeshInstance3D" parent="."]
+position = Vector3(-0.905, -0.905, 0.29)
+scale = Vector3(0.07, 0.07, 0.07)
+mesh = SubResource("unit_sphere")
+material_override = SubResource("frame")
+
+[node name="Rivet6" type="MeshInstance3D" parent="."]
+position = Vector3(0, -1.28, 0.29)
+scale = Vector3(0.07, 0.07, 0.07)
+mesh = SubResource("unit_sphere")
+material_override = SubResource("frame")
+
+[node name="Rivet7" type="MeshInstance3D" parent="."]
+position = Vector3(0.905, -0.905, 0.29)
+scale = Vector3(0.07, 0.07, 0.07)
+mesh = SubResource("unit_sphere")
+material_override = SubResource("frame")
+
+[node name="CornerBoltTL" type="MeshInstance3D" parent="."]
+position = Vector3(-1.62, 1.62, -0.05)
+scale = Vector3(0.09, 0.09, 0.09)
+mesh = SubResource("unit_sphere")
+material_override = SubResource("steel")
+
+[node name="CornerBoltTR" type="MeshInstance3D" parent="."]
+position = Vector3(1.62, 1.62, -0.05)
+scale = Vector3(0.09, 0.09, 0.09)
+mesh = SubResource("unit_sphere")
+material_override = SubResource("steel")
+
+[node name="CornerBoltBL" type="MeshInstance3D" parent="."]
+position = Vector3(-1.62, -1.62, -0.05)
+scale = Vector3(0.09, 0.09, 0.09)
+mesh = SubResource("unit_sphere")
+material_override = SubResource("steel")
+
+[node name="CornerBoltBR" type="MeshInstance3D" parent="."]
+position = Vector3(1.62, -1.62, -0.05)
+scale = Vector3(0.09, 0.09, 0.09)
+mesh = SubResource("unit_sphere")
+material_override = SubResource("steel")
+
+[node name="Wheel" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, 0.31)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("wheel")
+material_override = SubResource("frame")
+
+[node name="Spoke0" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, 0.35)
+scale = Vector3(0.08, 0.8, 0.07)
+mesh = SubResource("unit_box")
+material_override = SubResource("frame")
+
+[node name="Spoke60" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, 0.35)
+rotation_degrees = Vector3(0, 0, 60)
+scale = Vector3(0.08, 0.8, 0.07)
+mesh = SubResource("unit_box")
+material_override = SubResource("frame")
+
+[node name="Spoke120" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, 0.35)
+rotation_degrees = Vector3(0, 0, 120)
+scale = Vector3(0.08, 0.8, 0.07)
+mesh = SubResource("unit_box")
+material_override = SubResource("frame")
+
+[node name="Hub" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, 0.36)
+scale = Vector3(0.12, 0.12, 0.12)
+mesh = SubResource("unit_sphere")
+material_override = SubResource("gold")
+
+[node name="PlacardPlate" type="MeshInstance3D" parent="."]
+position = Vector3(0, -1.2, 0.26)
+scale = Vector3(0.9, 0.3, 0.04)
+mesh = SubResource("unit_box")
+material_override = SubResource("placard")
+
+[node name="PlacardText" type="Label3D" parent="."]
+position = Vector3(0, -1.2, 0.29)
+text = "RECIPES"
+font_size = 11
+pixel_size = 0.012
+outline_size = 5
+modulate = Color(0.992, 0.953, 0.816, 1)
+double_sided = true

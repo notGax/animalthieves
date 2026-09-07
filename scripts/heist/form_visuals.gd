@@ -10,11 +10,8 @@ const Materials = preload("res://scripts/visuals/character_materials.gd")
 
 
 static func sphere(parent: Node3D, pos: Vector3, size: Vector3, color: Color) -> MeshInstance3D:
-	var mesh := SphereMesh.new()
-	mesh.radial_segments = 12
-	mesh.rings = 7
 	var instance := MeshInstance3D.new()
-	instance.mesh = mesh
+	instance.mesh = Materials.sphere_mesh(12, 7)
 	instance.position = pos
 	instance.scale = size
 	instance.material_override = Materials.toon_part(color)
@@ -111,13 +108,8 @@ static func _boar(parent: Node3D) -> Dictionary:
 static func _bird(parent: Node3D, skin: Dictionary) -> Array:
 	var amber := Color("ffb347")
 	# Conical beak where the mouth sits, plus a three-feather crest.
-	var beak := CylinderMesh.new()
-	beak.top_radius = .02
-	beak.bottom_radius = .18
-	beak.height = .5
-	beak.radial_segments = 8
 	var beak_mesh := MeshInstance3D.new()
-	beak_mesh.mesh = beak
+	beak_mesh.mesh = Materials.cyl_mesh(.02, .18, .5, 8)
 	beak_mesh.rotation.x = PI * .5
 	beak_mesh.position = Vector3(0, .78, -.74)
 	beak_mesh.material_override = Materials.part(amber)

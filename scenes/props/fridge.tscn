@@ -1,0 +1,173 @@
+[gd_scene format=3]
+
+[sub_resource type="StandardMaterial3D" id="shell"]
+albedo_color = Color(0.604, 0.639, 0.671, 1)
+roughness = 0.55
+metallic = 0.35
+
+[sub_resource type="StandardMaterial3D" id="shell_dark"]
+albedo_color = Color(0.29, 0.322, 0.353, 1)
+roughness = 0.55
+metallic = 0.4
+
+[sub_resource type="StandardMaterial3D" id="kick"]
+albedo_color = Color(0.114, 0.082, 0.141, 1)
+roughness = 0.85
+
+[sub_resource type="StandardMaterial3D" id="interior"]
+albedo_color = Color(0.122, 0.42, 0.408, 1)
+roughness = 0.82
+
+[sub_resource type="StandardMaterial3D" id="glow_strip"]
+albedo_color = Color(0.62, 0.941, 0.894, 1)
+roughness = 0.4
+emission_enabled = true
+emission = Color(0.62, 0.941, 0.894, 1)
+emission_energy_multiplier = 1.6
+
+[sub_resource type="StandardMaterial3D" id="glass"]
+transparency = 1
+albedo_color = Color(0.75, 0.88, 0.92, 0.4)
+roughness = 0.1
+metallic = 0.2
+
+[sub_resource type="StandardMaterial3D" id="teal"]
+albedo_color = Color(0.247, 0.659, 0.627, 1)
+roughness = 0.75
+
+[sub_resource type="StandardMaterial3D" id="cheese_pale"]
+albedo_color = Color(0.949, 0.851, 0.545, 1)
+roughness = 0.8
+
+[sub_resource type="BoxMesh" id="unit_box"]
+size = Vector3(1, 1, 1)
+
+[sub_resource type="CylinderMesh" id="cyl_handle"]
+top_radius = 0.035
+bottom_radius = 0.035
+height = 0.9
+radial_segments = 10
+
+[sub_resource type="CylinderMesh" id="cyl_can"]
+top_radius = 0.1
+bottom_radius = 0.1
+height = 0.3
+radial_segments = 10
+
+[node name="Fridge" type="Node3D"]
+
+[node name="Shell" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, 0)
+scale = Vector3(3, 3.3, 3.8)
+mesh = SubResource("unit_box")
+material_override = SubResource("shell")
+
+[node name="TopCap" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.7, 0)
+scale = Vector3(3.06, 0.1, 3.86)
+mesh = SubResource("unit_box")
+material_override = SubResource("shell_dark")
+
+[node name="Kick" type="MeshInstance3D" parent="."]
+position = Vector3(0, -1.62, 0)
+scale = Vector3(3.04, 0.14, 3.84)
+mesh = SubResource("unit_box")
+material_override = SubResource("kick")
+
+[node name="InteriorGlow" type="MeshInstance3D" parent="."]
+position = Vector3(-1.49, 0, 0)
+scale = Vector3(0.03, 2.4, 3)
+mesh = SubResource("unit_box")
+material_override = SubResource("glow_strip")
+
+[node name="DoorFrameTop" type="MeshInstance3D" parent="."]
+position = Vector3(-1.53, 1.48, 0)
+scale = Vector3(0.12, 0.12, 3.2)
+mesh = SubResource("unit_box")
+material_override = SubResource("shell_dark")
+
+[node name="DoorFrameBottom" type="MeshInstance3D" parent="."]
+position = Vector3(-1.54, -1.08, 0)
+scale = Vector3(0.12, 0.12, 3.2)
+mesh = SubResource("unit_box")
+material_override = SubResource("shell_dark")
+
+[node name="DoorGlassL" type="MeshInstance3D" parent="."]
+position = Vector3(-1.58, 0.15, -0.78)
+scale = Vector3(0.05, 2.3, 1.4)
+mesh = SubResource("unit_box")
+material_override = SubResource("glass")
+
+[node name="DoorGlassR" type="MeshInstance3D" parent="."]
+position = Vector3(-1.58, 0.15, 0.78)
+scale = Vector3(0.05, 2.3, 1.4)
+mesh = SubResource("unit_box")
+material_override = SubResource("glass")
+
+[node name="DoorMullion" type="MeshInstance3D" parent="."]
+position = Vector3(-1.6, 0.15, 0)
+scale = Vector3(0.07, 2.5, 0.09)
+mesh = SubResource("unit_box")
+material_override = SubResource("shell_dark")
+
+[node name="HandleL" type="MeshInstance3D" parent="."]
+position = Vector3(-1.65, 0.2, -0.45)
+mesh = SubResource("cyl_handle")
+material_override = SubResource("shell_dark")
+
+[node name="HandleR" type="MeshInstance3D" parent="."]
+position = Vector3(-1.65, 0.2, 0.45)
+mesh = SubResource("cyl_handle")
+material_override = SubResource("shell_dark")
+
+[node name="ShelfA" type="MeshInstance3D" parent="."]
+position = Vector3(-1.5, -0.35, 0)
+scale = Vector3(0.06, 0.05, 2.9)
+mesh = SubResource("unit_box")
+material_override = SubResource("shell_dark")
+
+[node name="ShelfB" type="MeshInstance3D" parent="."]
+position = Vector3(-1.5, 0.45, 0)
+scale = Vector3(0.06, 0.05, 2.9)
+mesh = SubResource("unit_box")
+material_override = SubResource("shell_dark")
+
+[node name="CanA0" type="MeshInstance3D" parent="."]
+position = Vector3(-1.5, -0.15, -1.2)
+mesh = SubResource("cyl_can")
+material_override = SubResource("shell")
+
+[node name="CanA1" type="MeshInstance3D" parent="."]
+position = Vector3(-1.5, -0.15, -0.4)
+mesh = SubResource("cyl_can")
+material_override = SubResource("teal")
+
+[node name="CanA2" type="MeshInstance3D" parent="."]
+position = Vector3(-1.5, -0.15, 0.4)
+mesh = SubResource("cyl_can")
+material_override = SubResource("cheese_pale")
+
+[node name="CanA3" type="MeshInstance3D" parent="."]
+position = Vector3(-1.5, -0.15, 1.2)
+mesh = SubResource("cyl_can")
+material_override = SubResource("shell")
+
+[node name="CanB0" type="MeshInstance3D" parent="."]
+position = Vector3(-1.5, 0.65, -1.2)
+mesh = SubResource("cyl_can")
+material_override = SubResource("teal")
+
+[node name="CanB1" type="MeshInstance3D" parent="."]
+position = Vector3(-1.5, 0.65, -0.4)
+mesh = SubResource("cyl_can")
+material_override = SubResource("shell")
+
+[node name="CanB2" type="MeshInstance3D" parent="."]
+position = Vector3(-1.5, 0.65, 0.4)
+mesh = SubResource("cyl_can")
+material_override = SubResource("shell")
+
+[node name="CanB3" type="MeshInstance3D" parent="."]
+position = Vector3(-1.5, 0.65, 1.2)
+mesh = SubResource("cyl_can")
+material_override = SubResource("cheese_pale")

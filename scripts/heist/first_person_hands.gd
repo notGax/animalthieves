@@ -189,9 +189,7 @@ func _process(delta: float) -> void:
 
 func part(pos: Vector3,size: Vector3,color: Color) -> MeshInstance3D:
 	var mesh := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size=size
-	mesh.mesh=box
+	mesh.mesh=Materials.box_mesh(size)
 	mesh.position=pos
 	mesh.material_override=Materials.toon_part(color)
 	mesh.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -215,6 +213,8 @@ func make_tool(tool: String) -> void:
 		"crystal":
 			var crystal := Visual.sphere(tool_root,Vector3(0,.12,-.04),Vector3(.19,.35,.18),Color("b6a3da"))
 			crystal.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			var mesh := crystal.mesh as SphereMesh
-			mesh.radial_segments=6
-			mesh.rings=3
+			# sphere_mesh() hands back SHARED cache entries; never mutate one in
+			# place (that re-faceted every sphere in the game). Ask for the
+			# low-poly variant and let a pale glow read as revival energy.
+			crystal.mesh=Materials.sphere_mesh(6,3)
+			crystal.material_override=Materials.lit(Color("c9b6f0"),1.15)
