@@ -270,10 +270,13 @@ func run() -> void:
 	check(rig._wheels.size()==4,"the vehicle rig builds four wheel pivots")
 	check(world.vehicles.truck.rig.driver_marker.position.z<-0.8,"the truck seats its driver in the cab")
 	check(world.vehicles.cart.rig.driver_marker.position.z>1.2,"the cart seats its driver behind the basket")
-	# Spatial audio: each rig carries a seamless engine loop and the crash
-	# stream on its hooks; the world carries the Rat Mart ambience emitters.
-	check(rig.engine_audio.stream!=null and rig.engine_audio.stream.loop_mode==AudioStreamWAV.LOOP_FORWARD,
-		"the rig's EngineAudio hook carries a seamless looping engine stream")
+	# Spatial audio: powered rigs carry a seamless engine loop that only runs
+	# while somebody is aboard, the human-powered cart carries none at all,
+	# and the world carries the Rat Mart ambience emitters.
+	check(world.vehicles.truck.rig.engine_audio.stream!=null and world.vehicles.truck.rig.engine_audio.stream.loop_mode==AudioStreamWAV.LOOP_FORWARD,
+		"powered rigs carry a seamless looping engine stream")
+	check(not world.vehicles.truck.rig.engine_audio.playing and world.vehicles.cart.rig.engine_audio==null,
+		"engines hold silent until someone is aboard; the cart carries none at all")
 	check(world.vehicles.truck.rig.impact_audio.stream!=null,"the rig's ImpactAudio hook carries the crash stream")
 	check(GameAudio.engine_stream("truck")!=GameAudio.engine_stream("cart") and GameAudio.stream("cash")==GameAudio.stream("cash"),
 		"audio streams are synthesized once and shared from the cache")
@@ -326,6 +329,8 @@ func run() -> void:
 	check(world.vehicles.truck.node.position.z<149.3,"the truck climbs a curb inside its step height")
 	check(float(world.vehicles.truck["hop_clock"])>=0.0,"the truck's curb assist actually fired")
 	check(world.vehicles.truck.node.position.y<33.0,"the curb assist hops instead of teleporting")
+	check(world.vehicles.truck.rig.engine_audio.playing and not world.vehicles.truck.rig.engine_audio.stream_paused,
+		"the truck's engine loop runs while someone is aboard")
 	# Racecar: step height .18 is far below the .45 curb. It grinds to a stop
 	# at low speed and the assist declines the obstacle (unit-gated too).
 	await place_vehicle(world,"racecar",151.9)

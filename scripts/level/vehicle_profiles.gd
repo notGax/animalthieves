@@ -25,6 +25,8 @@ extends RefCounted
 ##  ram_min_speed         - planar speed below which bumping an enemy does nothing
 ##  ram_cooldown          - seconds before the same enemy can be ram-damaged again
 ##  visual_wheel_radius   - rig wheel size; spin is derived from real velocity
+##  has_engine            - powered vehicles only: carries the looped engine
+##                          audio hook (the cart is human-powered and silent)
 ##  fov_gain / fov_max    - local camera speed-stretch while driving
 ##  camera_distance       - local third-person arm length while driving
 const PROFILES: Dictionary = {
@@ -47,6 +49,7 @@ const PROFILES: Dictionary = {
 		"ram_min_speed": 5.0,
 		"ram_cooldown": 1.2,
 		"visual_wheel_radius": 0.22,
+		"has_engine": false,
 		"fov_gain": 0.45,
 		"fov_max": 5.0,
 		"camera_distance": 6.5,
@@ -70,6 +73,7 @@ const PROFILES: Dictionary = {
 		"ram_min_speed": 6.0,
 		"ram_cooldown": 1.5,
 		"visual_wheel_radius": 0.42,
+		"has_engine": true,
 		"fov_gain": 0.35,
 		"fov_max": 7.0,
 		"camera_distance": 7.5,
@@ -93,6 +97,7 @@ const PROFILES: Dictionary = {
 		"ram_min_speed": 7.0,
 		"ram_cooldown": 0.9,
 		"visual_wheel_radius": 0.40,
+		"has_engine": true,
 		"fov_gain": 0.55,
 		"fov_max": 10.0,
 		"camera_distance": 7.0,

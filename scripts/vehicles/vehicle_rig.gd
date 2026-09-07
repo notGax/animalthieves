@@ -96,16 +96,19 @@ func _ready() -> void:
 		"cart": driver_marker.position = Vector3(0.0, 0.62, 1.55)
 		"truck": driver_marker.position = Vector3(0.0, 1.15, -1.0)
 		"racecar": driver_marker.position = Vector3(0.0, 0.95, 0.1)
-	engine_audio = AudioStreamPlayer3D.new()
-	engine_audio.name = "EngineAudio"
-	engine_audio.unit_size = 7.0
-	engine_audio.max_db = -4.0
-	engine_audio.volume_db = -8.0
-	# Seamless one-second engine loop per profile kind; the per-frame update
-	# bends pitch and volume from the body's real speed.
-	engine_audio.stream = GameAudio.engine_stream(kind)
-	engine_audio.autoplay = true
-	chassis.add_child(engine_audio)
+	# Only powered vehicles carry an engine loop; the cart is human-powered
+	# and stays silent. The loop also waits until somebody is actually aboard
+	# (handled per frame below), so a parked fleet never hums.
+	if bool(profile.get("has_engine", false)):
+		engine_audio = AudioStreamPlayer3D.new()
+		engine_audio.name = "EngineAudio"
+		engine_audio.unit_size = 7.0
+		engine_audio.max_db = -4.0
+		engine_audio.volume_db = -8.0
+		# Seamless one-second engine loop per profile kind; the per-frame update
+		# bends pitch and volume from the body's real speed.
+		engine_audio.stream = GameAudio.engine_stream(kind)
+		chassis.add_child(engine_audio)
 	impact_audio = AudioStreamPlayer3D.new()
 	impact_audio.name = "ImpactAudio"
 	impact_audio.unit_size = 9.0
@@ -131,15 +134,29 @@ func _physics_process(delta: float) -> void:
 	_update_engine_audio(delta)
 
 
-## Engine presentation: pitch and volume breathe with the body's real
-## forward speed; the loop pauses while the vehicle is not in the fleet.
+## Engine presentation: the loop only runs while somebody is actually aboard
+## (parked vehicles stay silent), and its pitch and volume breathe with the
+## body's real forward speed.
 func _update_engine_audio(delta: float) -> void:
+	if engine_audio == null or engine_audio.stream == null:
+		return
 	var body := get_parent() as Node3D
-	if body == null or engine_audio.stream == null:
+	if body == null:
 		return
-	engine_audio.stream_paused = not body.visible
+	# The record's rider is authoritative on every peer: the server writes it
+	# on mount/dismount and clients receive it inside the state snapshots.
+	var world := body.get_parent()
+	var ridden := false
+	if world != null and "vehicles" in world:
+		ridden = int(world.vehicles.get(kind, {}).get("rider", 0)) > 0
+	if not ridden:
+		if engine_audio.playing and not engine_audio.stream_paused:
+			engine_audio.stream_paused = true
+		return
 	if engine_audio.stream_paused:
-		return
+		engine_audio.stream_paused = false
+	elif not engine_audio.playing:
+		engine_audio.play()
 	var speed01: float = clampf(absf(_last_forward_speed) / maxf(1.0, float(profile.get("max_forward_speed", 10.0))), 0.0, 1.0)
 	var weight := 1.0 - exp(-delta * 6.0)
 	engine_audio.pitch_scale = lerpf(engine_audio.pitch_scale, 0.9 + speed01 * 0.85, weight)
