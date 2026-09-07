@@ -18,10 +18,22 @@ var last_fall := 0.0
 var landing := 0.0
 var skin: Color
 var painted: Array = []
+# Mitten performance state: everything springs, nothing snaps.
+var sway_lag := Vector2.ZERO
+var anticipation := 0.0
+var punch := 0.0
+var yank_pending := false
+var throw_kick := 0.0
+var had_held: Node3D = null
 
 func _paint(instance: MeshInstance3D, lighten := 0.0) -> void:
 	painted.append([instance,lighten])
 	instance.material_override=Materials.part(skin.lightened(lighten))
+	# Viewmodel parts never cast shadows: part-on-part shadowing at this range
+	# is pure acne (the banded thumbs over the manhole grate), and the world
+	# shadowmap is tuned for metres, not centimetres. Receiving is kept, so
+	# light through the grate still plays over the mitts.
+	instance.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 func apply_skin(skin_index: int) -> void:
 	## Repaint every hand part from the shared palette (build + skin change).
@@ -64,7 +76,7 @@ func _input(event: InputEvent) -> void:
 		sway+=event.relative*.001
 		sway=sway.limit_length(.1)
 	if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_LEFT,MOUSE_BUTTON_RIGHT]:
-		pulse=1.0
+		anticipation=1.0
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode in [KEY_G,KEY_E,KEY_F]:
 		reach=1.0
 
@@ -85,8 +97,33 @@ func _process(delta: float) -> void:
 	phase+=delta*(8+speed*.65)
 	clock+=delta
 	sway=sway.lerp(Vector2.ZERO,minf(1,delta*8))
+	# Delayed sway: the mitts trail the camera drag, and the difference between
+	# the two feeds a small rotational inertia.
+	sway_lag=sway_lag.lerp(sway,minf(1,delta*4.5))
+	# Wind-up, then release: the strike is shaped per tool once the pull-back
+	# finishes. Water recoils soft, the grapple snaps out and yanks back,
+	# slaps give a plain recoil, the crystal just squeezes.
+	var was_winding := anticipation>0
+	anticipation=move_toward(anticipation,0,delta*8)
+	if was_winding and anticipation==0:
+		if tool=="water":
+			pulse=.5
+		elif tool=="grapple":
+			punch=1.0
+			yank_pending=true
+		elif tool!="crystal":
+			pulse=1.0
 	pulse=move_toward(pulse,0,delta*4)
+	punch=move_toward(punch,0,delta*8)
+	if yank_pending and punch<.35:
+		pulse=1.1
+		yank_pending=false
 	reach=move_toward(reach,0,delta*3)
+	# Throw follow-through: the release kicks both mitts forward, then springs.
+	if held==null and had_held:
+		throw_kick=1.0
+	had_held=held
+	throw_kick=move_toward(throw_kick,0,delta*3.5)
 	if character.is_on_floor() and last_fall < -3:
 		landing=minf(.15,absf(last_fall)*.01)
 	last_fall=character.velocity.y
@@ -103,30 +140,51 @@ func _process(delta: float) -> void:
 		if not character.is_on_floor():
 			target+=Vector3(side*.09+cos(clock*13+i*PI)*.05,.09+sin(clock*13+i*PI)*.06,-.04)
 			curl=0.0
+		# Carried goods have weight: heavier cargo droops lower and makes the
+		# mitts lazier to move.
+		var mass := 1.0
+		if held and held is RigidBody3D:
+			mass=clampf(held.mass*.5,.7,1.7)
 		if held:
 			target=camera.to_local(held.global_position)+Vector3(side*.24,-.04,.16)
 			target.z=clampf(target.z,-1.65,-.45)
-			target.y=clampf(target.y,-.6,.2)
+			target.y=clampf(target.y,-.6,.2)-(mass-1.0)*.05
 			curl=1.05
-		elif i==1 and tool in ["grapple","water","crystal"]:
+		elif i==1 and tool in ["grapple","water"]:
 			target=Vector3(.27,-.24,-.62)
 			curl=1.0
+		elif tool=="crystal" and float(state.get("gesture_time",0))>0:
+			# Reviving with the crystal: both mitts cradle it, gently bobbing.
+			target=Vector3(side*.13,-.27+sin(clock*3.1)*.012,-.47)
+			curl=.75
 		target.z-=reach*.22
+		target.z-=punch*.2
 		if i==1:
 			target.z+=pulse*.17
 			target.y+=pulse*.04
+		if throw_kick>0:
+			target.z-=throw_kick*.24
+			if i==1: target.y+=throw_kick*.05
 		target.y-=landing
-		target.x-=sway.x
-		target.y+=sway.y
+		target.x-=sway_lag.x
+		target.y+=sway_lag.y
+		if anticipation>0:
+			target.z+=anticipation*.09
+			target.y+=anticipation*.03
 		if float(state.get("hp",100))<=0:
 			target.y=-.65
 		var step := minf(delta,.04)
-		speeds[i]+=(target-hands[i].position)*150*step
+		speeds[i]+=(target-hands[i].position)*150/mass*step
 		speeds[i]*=exp(-18*step)
 		hands[i].position+=speeds[i]*step
 		# Grip curls the whole mitten; clicks and landings squish it like rubber.
-		hands[i].rotation=Vector3(-.14-curl*.38-pulse*.12,side*-.22,side*.15)
-		var squish := pulse*.14+landing*1.2+sin(clock*2.3+i)*.012
+		hands[i].rotation=Vector3(
+			-.14-curl*.38-pulse*.12-punch*.3-throw_kick*.35+anticipation*.3,
+			side*-.22+(sway.x-sway_lag.x)*2.2,
+			side*.15+(sway.y-sway_lag.y)*-1.6)
+		var squish := pulse*.14+landing*1.2+sin(clock*2.3+i)*.012+(mass-1.0)*.1
+		if tool=="crystal" and float(state.get("gesture_time",0))>0:
+			squish+=.06+sin(clock*3.1)*.02
 		hands[i].scale=Vector3(1.0+squish,1.0-squish*.7,1.0+squish)
 
 func part(pos: Vector3,size: Vector3,color: Color) -> void:
@@ -136,6 +194,7 @@ func part(pos: Vector3,size: Vector3,color: Color) -> void:
 	mesh.mesh=box
 	mesh.position=pos
 	mesh.material_override=Materials.part(color)
+	mesh.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	tool_root.add_child(mesh)
 
 func make_tool(tool: String) -> void:
@@ -146,12 +205,14 @@ func make_tool(tool: String) -> void:
 			part(Vector3(0,-.03,.015),Vector3(.08,.19,.08),Color("b4763f"))
 			part(Vector3(0,.055,-.26),Vector3(.1,.09,.1),Color("ffd27a"))
 			if tool=="water":
-				Visual.sphere(tool_root,Vector3(0,.16,-.08),Vector3(.19,.12,.28),Color("7acde8"))
+				var blob := Visual.sphere(tool_root,Vector3(0,.16,-.08),Vector3(.19,.12,.28),Color("7acde8"))
+				blob.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			else:
 				part(Vector3(-.065,.12,-.3),Vector3(.035,.17,.035),Color("9aa3ab"))
 				part(Vector3(-.035,.2,-.3),Vector3(.09,.035,.035),Color("9aa3ab"))
 		"crystal":
 			var crystal := Visual.sphere(tool_root,Vector3(0,.12,-.04),Vector3(.19,.35,.18),Color("b6a3da"))
+			crystal.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			var mesh := crystal.mesh as SphereMesh
 			mesh.radial_segments=6
 			mesh.rings=3

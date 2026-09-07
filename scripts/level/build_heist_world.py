@@ -408,6 +408,23 @@ s.cyl(store,'CheeseGlowPool',(-5,.02,-24.5),1.4,.02,'amber_light',glow=True)
 for i in range(17):
     x,z=rng.uniform(-15,15),rng.uniform(-59,-27)
     s.cyl(store,'DampPatch'+str(i),(x,.032,z),rng.uniform(.3,1.1),.018,'4a5a49')
+# Floor wear clusters: art-directed breakup of the tile repetition - a mold
+# bloom in the stockroom corner, chips at the checkout pinch point, grease by
+# the kitchen pass, a checkout runner, a freezer drip and barrel stains. All
+# placements are explicit so the generator stays deterministic.
+for i,(mx,mz) in enumerate([(-14,-56),(-12,-56.6),(-15,-54.2),(-11,-54.6),(-13.5,-55.4),(-9.6,-56.2),(-14.4,-52.6),(-11.4,-52.4)]):
+    s.box(store,'MoldTile%s'%i,(mx,.021,mz),(1.9,.02,1.9),'mold_green',False,rotation=(0,(2.5 if i%2 else -1.5),0))
+for i,(cx,cz) in enumerate([(8.8,-25.2),(9.5,-24.5),(10.2,-25.7),(9.1,-26.3)]):
+    s.box(store,'Chip%s'%i,(cx,.017,cz),(.72,.018,.6),'4a5a49',False,rotation=(0,18*i-9,0))
+s.cyl(store,'GreaseSlick',(12,.033,-52.9),1.35,.02,'223a32')
+s.cyl(store,'GreaseSlickB',(11,.031,-51.5),.7,.016,'223a32')
+s.box(store,'CheckoutRug',(9.3,.02,-28.4),(2.4,.022,4.2),'plum_panel',False)
+s.box(store,'CheckoutRugTrim',(9.3,.024,-28.4),(2.1,.02,3.9),'mold_green',False)
+s.cyl(store,'FreezerDrip',(12.4,.03,-42.2),.9,.02,'263c36')
+for i,(bx,bz) in enumerate([(-13,-53.4),(-9.2,-54.8),(-11.4,-56.4)]):
+    s.cyl(store,'BarrelStain%s'%i,(bx,.033,bz),.75,.02,'313c3c')
+for i,(dx_,dz_) in enumerate([(-9,-52.6),(-2,-52.6),(5,-52.6)]):
+    s.cyl(cellar,'StillDrip%s'%i,(dx_,-11.978,dz_),.85,.014,'313c3c')
 s.box(store,'RatHole',(-16.72,.65,-39),(.04,1.3,1.5),'172c2b',False)
 s.text(store,'RatHoleHint',(-15.7,1.8,-39),'RAT SHORTCUT\nRequires rat form',16,'c9ba8a',90)
 
@@ -648,16 +665,20 @@ for lx,lz in [(-8,-30),(8,-30),(-8,-42),(8,-42),(-8,-55),(8,-55)]:
     s.cyl(store,'LampCone%s%s'%(lx,lz),(lx,5.08,lz),.5,.42,'plum_panel')
     s.sphere(store,'LampBulb%s%s'%(lx,lz),(lx,4.86,lz),(.16,.2,.16),'amber_hot',True)
 # Crooked hanging aisle boards break up the flat ceiling line and give the
-# floor plan readable landmarks. All positions are fixed - no rng here.
+# floor plan readable landmarks. Each hangs from a pivot node so the shared
+# store animator can pendulum them; positions are fixed - no rng here.
 for hi,(hx,hz,label,yaw) in enumerate([(-3,-33,'AISLE 01',-8),(4,-37,'AISLE 02',10),(-1,-47,'FRESH-ish',-5)]):
-    s.cyl(store,'SignCable%s'%(hi),(hx,5.85,hz),.02,.55,'steel_dark')
-    s.box(store,'HangingSign%s'%(hi),(hx,5.4,hz),(1.5,.55,.06),'plum_panel',False,rotation=(0,yaw,2 if hi==1 else -3))
-    s.text(store,'HangingText%s'%(hi),(hx,5.4,hz-.05),label,13,'cream',yaw)
-# Idle ceiling fan over the customer area: rod, hub and two crossed blades.
+    pivot=s.node('SignPivot%s'%hi,'Node3D',store,'position = %s'%vec((hx,5.85,hz)))
+    s.cyl(pivot,'SignCable%s'%(hi),(0,0,0),.02,.55,'steel_dark')
+    s.box(pivot,'HangingSign%s'%(hi),(0,-.45,0),(1.5,.55,.06),'plum_panel',False,rotation=(0,yaw,2 if hi==1 else -3))
+    s.text(pivot,'HangingText%s'%(hi),(0,-.45,-.05),label,13,'cream',yaw)
+# Idle ceiling fan over the customer area: rod, hub and two crossed blades on
+# a pivot node the shared animator spins with an imperfect speed.
 s.cyl(store,'FanRod',(3,5.9,-26),.04,.65,'steel_dark')
-s.box(store,'FanHub',(3,5.5,-26),(.3,.12,.3),'steel_dark',False)
-s.box(store,'FanBladeA',(3,5.5,-26),(2.5,.04,.24),'wood_dark',False,rotation=(0,8,0))
-s.box(store,'FanBladeB',(3,5.5,-26),(2.5,.04,.24),'wood_dark',False,rotation=(0,98,3))
+fan=s.node('Fan','Node3D',store,'position = %s'%vec((3,5.5,-26)))
+s.box(fan,'FanHub',(0,0,0),(.3,.12,.3),'steel_dark',False)
+s.box(fan,'FanBladeA',(0,0,0),(2.5,.04,.24),'wood_dark',False,rotation=(0,8,0))
+s.box(fan,'FanBladeB',(0,0,0),(2.5,.04,.24),'wood_dark',False,rotation=(0,98,3))
 # Turquoise service pipe with gold valves along the back partition.
 s.cyl(store,'ServicePipe',(-4,3.5,-50.7),.13,23,'turquoise_deep',(90,0,0))
 for vx in (-12,-7,-2):
@@ -681,6 +702,11 @@ for i,z in enumerate((-40,-45)):
         s.box(store,'FridgeShelf%s%s'%(i,sy),(13.2,sy,z),(.06,.05,2.9),'steel',False)
         for j in range(4):
             s.cyl(store,'FridgeCan%s%s%s'%(i,sy,j),(13.2,sy+.2,z-1.2+j*.8),.1,.3,('steel','turquoise','cheese_pale','steel')[j])
+    # Fridge fans spin behind the glass; the shared store animator drives them.
+    fridge_fan=s.node('FridgeFan%s'%i,'Node3D',store,'position = %s'%vec((13.45,2.86,z)))
+    s.cyl(fridge_fan,'FanMotor%s'%i,(0,0,0),.12,.1,'steel_dark',(0,0,90))
+    s.box(fridge_fan,'FanWingA',(0,0,0),(.05,.42,.05),'steel',False)
+    s.box(fridge_fan,'FanWingB',(0,0,0),(.05,.05,.42),'steel',False)
 # Stockroom clutter: crates, buckets and handwritten price tags.
 for ci,(cx,cy,cz,rot) in enumerate([(-14,.55,-53,0),(-12.7,.55,-53,10),(-13.4,1.65,-53.3,15),(-13.4,.55,-53.9,-6)]):
     s.box(store,'Crate'+str(ci),(cx,cy,cz),(1.1,1.1,1.1),'wood_warm',False,rotation=(0,rot,0))
@@ -705,6 +731,17 @@ for pz in range(-24,-60,-3):
 s.box(store,'SagPatch',(3,5.8,-37),(2.6,.12,1.7),'wood_dark',False,rotation=(0,0,7))
 s.box(store,'CrookDuct',(-12,5.35,-48),(3.2,.45,.5),'steel',False,rotation=(0,5,2))
 s.box(store,'RivetPlate',(-16.68,2.2,-36),(1.6,1.2,.06),'steel',False,rotation=(0,90,0))
+# Wall breakup: utility boxes, conduit runs and plaster insets clustered near
+# the service corner and fridge wall, with breathing space between clusters.
+for side in (-1,1):
+    s.box(store,'UtilityBox%s'%side,(side*16.6,3.55,-31.5),(.14,1,1.3),'steel',False,rotation=(0,90,0))
+    for j,cz in enumerate((-33.8,-38.4,-49.2)):
+        s.cyl(store,'Conduit%s%s'%(side,j),(side*16.6,2.6,cz),.055,5.2,'steel_dark')
+for i,(px,pz) in enumerate([(-16.7,-35.5),(16.7,-38.5),(-16.7,-45)]):
+    s.box(store,'PlasterInset%s'%i,(px,2.5,pz),(.1,1.6,2.2),'737b66',False,rotation=(0,90,0))
+# Slack wiring swags strung between the ceiling beams; the animator sways them.
+for i in range(2):
+    s.cyl(store,'CableSwag%s'%i,(0,5.35,-36-i*12.5),.028,29.5,'steel_dark',(0,5,88))
 # Sidewalk merchandising: sandwich board and a crate stack by the door.
 s.box(store,'BoardLeft',(3.6,.8,-18.9),(1,1.6,.07),'awning_cream',False,rotation=(0,-10,8))
 s.box(store,'BoardRight',(3.6,.8,-19.1),(1,1.6,.07),'awning_cream',False,rotation=(0,-10,-8))
@@ -724,6 +761,10 @@ s.box(store,'BoardCheese',(1.8,2.45,-76.3),(.5,.32,.5),'cheese_yellow',False,rot
 s.cyl(store,'StockPot',(-2.3,2.9,-76.4),1.25,1.5,'steel')
 s.cyl(store,'PotLid',(-2.3,3.7,-76.4),1.32,.12,'steel_dark')
 s.sphere(store,'LidKnob',(-2.3,3.82,-76.4),(.1,.12,.1),'gold')
+# Steam puffs loop up out of the stock pot; the animator cycles them.
+steam=s.node('PotSteam','Node3D',store,'position = %s'%vec((-2.3,4.05,-76.4)))
+for si in range(3):
+    s.sphere(steam,'Puff%s'%si,((si-1)*.18,si*.1,(si-1)*.1),(.3,.3,.3),'cream_dim',True)
 s.cyl(store,'LadleHandle',(-2.85,3.4,-76.1),.05,1.3,'steel',(0,0,24))
 s.sphere(store,'LadleScoop',(-3.25,2.85,-76.1),(.18,.22,.18),'steel')
 s.box(store,'PotRackBar',(0,4.2,-76),(5,.12,.12),'steel_dark',False)
@@ -731,9 +772,16 @@ for hx in (-1.5,0,1.5):
     s.cyl(store,'PotChain'+str(hx),(hx,3.95,-76),.03,.42,'steel_dark',False)
     s.cyl(store,'HangingPot'+str(hx),(hx,3.55,-76),.4,.42,'steel_dark')
 s.box(store,'StoveWall',(0,1.4,-79.6),(7,2.8,.25),'steel_dark',False)
+# Stove splashback and a hanging utensil rail dress the kitchen wall.
+s.box(store,'Splashback',(0,3.4,-79.6),(7,1.6,.08),'tile_pale',False)
+s.cyl(store,'UtensilRail',(0,3.05,-79.35),.035,5,'steel_dark',(0,0,90))
+for ui,(ux,uw,uh) in enumerate([(-2.2,.09,.5),(-1.8,.06,.62),(1.8,.12,.42),(2.2,.07,.55)]):
+    s.box(store,'Utensil%s'%ui,(ux,2.75,-79.35),(uw,uh,.07),'steel',False)
+# Burner flames live under one node so the animator can flicker them as a set.
+flames=s.node('StoveFlames','Node3D',store)
 for bx in (-2.4,-.8,.8,2.4):
     s.cyl(store,'Burner'+str(bx),(bx,.9,-79.45),.45,.08,'ember',glow=True)
-    s.sphere(store,'Flame'+str(bx),(bx,1.08,-79.45),(.22,.35,.22),'amber_hot',True)
+    s.sphere(flames,'Flame'+str(bx),(bx,1.08,-79.45),(.22,.35,.22),'amber_hot',True)
 s.box(store,'StoveGrate',(0,2.5,-79.5),(7,.15,.4),'steel_dark',False)
 s.box(store,'VaultFrame',(9,1.6,-79.85),(3.6,3.6,.15),'steel_dark',False)
 s.cyl(store,'VaultDoor',(9,1.6,-79.7),1.5,.2,'gold',(90,0,0))
@@ -753,6 +801,11 @@ for j in range(7):
     s.cyl(cellar,'ReserveBottle'+str(j),(-4.5+j*1.5,-9.9,-62.4),.1,.4,'moonshine_pink' if j%2 else 'moonshine_purple',glow=True)
 s.cyl(cellar,'Puddle',(3,-11.985,-47),1.5,.015,'moonshine_purple',glow=True)
 s.cyl(cellar,'PuddleDrip',(4.3,-11.988,-46.3),.8,.012,'moonshine_purple',glow=True)
+# Moonshine bubbles rise out of the puddle on a loop the animator drives.
+bubbles=s.node('PuddleBubbles','Node3D',cellar,'position = %s'%vec((3,-11.9,-47)))
+s.sphere(bubbles,'BubbleA',(0,0,0),(.14,.14,.14),'moonshine_purple',True)
+s.sphere(bubbles,'BubbleB',(.3,0,.2),(.1,.1,.1),'moonshine_purple',True)
+s.sphere(bubbles,'BubbleC',(-.26,0,-.18),(.08,.08,.08),'moonshine_purple',True)
 for px in (-6,6):
     s.cyl(cellar,'CellarPipe'+str(px),(px,-6,-51),.18,22,'steel_dark',(90,0,0))
     for dz in (-41.5,-60.5):
@@ -765,9 +818,12 @@ for ti,(tx,tw,th) in enumerate([(-1.6,.3,1.1),(0,.25,.8),(1.4,1.0,.22)]):
 s.box(base,'LoungePad',(-12,-11.7,42),(2.4,.35,1.3),'turquoise_deep',False)
 s.box(base,'LoungeBack',(-12,-11.3,42.7),(2.4,.8,.3),'turquoise_deep',False)
 
+# One shared animator node drives every moving dressing prop above; see
+# scripts/level/store_motion.gd. Local cosmetic only - never networked.
+s.node('StoreMotion','Node3D','.','script = ExtResource("motion")')
 # Preview camera is replaced automatically when a local player spawns.
 s.node('LobbyPreview','Camera3D','.', 'position = Vector3(31, 22, 26)\nrotation_degrees = Vector3(-22, 30, 0)\ncurrent = true\nfov = 65.0')
-s.save(Path('scenes/level/heist_world.tscn'),'[ext_resource type="Script" path="res://scripts/level/heist_world.gd" id="world"]\n[ext_resource type="Texture2D" path="res://assets/environment/heist/shop_posters.png" id="posters"]\n')
+s.save(Path('scenes/level/heist_world.tscn'),'[ext_resource type="Script" path="res://scripts/level/heist_world.gd" id="world"]\n[ext_resource type="Texture2D" path="res://assets/environment/heist/shop_posters.png" id="posters"]\n[ext_resource type="Script" path="res://scripts/level/store_motion.gd" id="motion"]\n')
 
 # Physics merchandise scenes, registered with the existing MultiplayerSpawner.
 for item,color,shape in [('rotten_cheese','c5ce69','cheese'),('moonshine','899d70','bottle'),('canned_food','9aa3ab','can'),('stolen_goods','d5b565','box')]:

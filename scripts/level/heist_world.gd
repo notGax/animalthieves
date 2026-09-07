@@ -350,6 +350,10 @@ func hurt_player(id: int,amount: float,knockback: Vector3) -> void:
 		return
 	data.hp=maxf(0,float(data.hp)-amount)
 	data.hurt_cooldown=.8
+	var victim := player_for(id)
+	if victim:
+		# Short readable slap pop - no giant explosion, the squash reads first.
+		fx.rpc(victim.global_position+Vector3.UP,Color("ff9db1"),.6)
 	if data.hp<=0:
 		release_cargo(id,Vector3.ZERO)
 		data.vehicle=""
@@ -696,7 +700,9 @@ func melee(player: CharacterBody3D,direction: Vector3) -> void:
 		var offset: Vector3=enemy.global_position-player.global_position
 		if enemy.hp>0 and offset.length()<4.3 and offset.normalized().dot(direction)>.05 and clear_line(player.global_position+Vector3.UP,enemy.global_position+Vector3.UP):
 			enemy.take_damage(damage)
-			fx.rpc(enemy.global_position+Vector3.UP,Color("f2d9a1"),.4)
+			# Boss hits read heavier than guard hits; wall impacts stay the
+			# strongest pop in the game.
+			fx.rpc(enemy.global_position+Vector3.UP,Color("f2d9a1"),1.1 if enemy.boss else .4)
 	play_sound.rpc("slap")
 	# Fire-breathing lizard form and ignitable spilled spirits.
 	if data.form=="lizard":
@@ -870,6 +876,7 @@ func use_tool(player: CharacterBody3D,direction: Vector3) -> void:
 				if camera.position.distance_to(player.global_position+direction*8)<5:
 					camera.disabled=true
 			beam.rpc(player.global_position+Vector3.UP,player.global_position+Vector3.UP+direction*15,Color("7acde8"))
+			fx.rpc(player.global_position+Vector3.UP+direction*7,Color("7acde8"),.8)
 			for other in live_players():
 				if other==player: continue
 				var offset: Vector3=other.global_position-player.global_position
@@ -1379,6 +1386,70 @@ func notice(message: String) -> void:
 	toast_clock=5.0
 
 var fx_live: Array[Node]=[]
+# Shared VFX geometry: a unit sphere, flat ring torus and beam shaft are
+# created once per class and scaled per burst, so pops never allocate meshes.
+static var _fx_sphere: SphereMesh
+static var _fx_torus: TorusMesh
+static var _fx_shaft: CylinderMesh
+static var _fx_core: CylinderMesh
+static var _fx_mats: Dictionary = {}
+static var _fx_white: StandardMaterial3D
+
+static func fx_unit_sphere() -> SphereMesh:
+	if _fx_sphere == null:
+		_fx_sphere = SphereMesh.new()
+		_fx_sphere.radius = 1.0
+		_fx_sphere.height = 2.0
+		_fx_sphere.radial_segments = 12
+		_fx_sphere.rings = 7
+	return _fx_sphere
+
+static func fx_unit_torus() -> TorusMesh:
+	if _fx_torus == null:
+		_fx_torus = TorusMesh.new()
+		_fx_torus.inner_radius = .88
+		_fx_torus.outer_radius = 1.1
+		_fx_torus.rings = 32
+		_fx_torus.ring_segments = 8
+	return _fx_torus
+
+static func fx_beam_mesh() -> CylinderMesh:
+	if _fx_shaft == null:
+		_fx_shaft = CylinderMesh.new()
+		_fx_shaft.top_radius = .075
+		_fx_shaft.bottom_radius = .075
+		_fx_shaft.height = 1.0
+		_fx_shaft.radial_segments = 6
+		_fx_shaft.rings = 0
+	return _fx_shaft
+
+static func fx_beam_core_mesh() -> CylinderMesh:
+	if _fx_core == null:
+		_fx_core = CylinderMesh.new()
+		_fx_core.top_radius = .028
+		_fx_core.bottom_radius = .028
+		_fx_core.height = 1.0
+		_fx_core.radial_segments = 6
+		_fx_core.rings = 0
+	return _fx_core
+
+static func fx_base_material(color: Color) -> StandardMaterial3D:
+	var key := color.to_html()
+	if not _fx_mats.has(key):
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = color
+		mat.roughness = .8
+		_fx_mats[key] = mat
+	return _fx_mats[key]
+
+static func fx_beam_core_material() -> StandardMaterial3D:
+	if _fx_white == null:
+		_fx_white = StandardMaterial3D.new()
+		_fx_white.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_fx_white.albedo_color = Color(1,1,.85,.9)
+		_fx_white.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_fx_white.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	return _fx_white
 
 @rpc("authority","call_local","unreliable")
 func fx(point: Vector3,color: Color,size: float) -> void:
@@ -1389,23 +1460,24 @@ func fx(point: Vector3,color: Color,size: float) -> void:
 		if is_instance_valid(stale):
 			stale.queue_free()
 	# Elastic pop: glowing core, expanding flat ring, five debris sparks.
+	# Only the two fading materials are duplicated per burst.
 	var root := Node3D.new()
 	root.position=point
 	add_child(root)
 	fx_live.append(root)
-	var core := Visual.sphere(root,Vector3.ZERO,Vector3.ONE*size,color)
-	var core_mat: StandardMaterial3D=(core.material_override as StandardMaterial3D).duplicate()
-	core.material_override=core_mat
-	core_mat.emission_enabled=true
-	core_mat.emission=color
-	core_mat.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
+	var burst_mat: StandardMaterial3D=fx_base_material(color).duplicate()
+	burst_mat.emission_enabled=true
+	burst_mat.emission=color
+	burst_mat.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
+	var core := MeshInstance3D.new()
+	core.mesh=fx_unit_sphere()
+	core.scale=Vector3.ONE*size
+	core.material_override=burst_mat
+	root.add_child(core)
 	var ring := MeshInstance3D.new()
-	var ring_mesh := TorusMesh.new()
-	ring_mesh.inner_radius=size*.44
-	ring_mesh.outer_radius=size*.55
-	ring.mesh=ring_mesh
+	ring.mesh=fx_unit_torus()
 	ring.rotation.x=PI*.5
-	ring.scale=Vector3.ONE*.15
+	ring.scale=Vector3.ONE*size*.15
 	var ring_mat := StandardMaterial3D.new()
 	ring_mat.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED
 	ring_mat.albedo_color=Color(color.r,color.g,color.b,.9)
@@ -1415,21 +1487,19 @@ func fx(point: Vector3,color: Color,size: float) -> void:
 	var tween := create_tween()
 	tween.set_parallel(true)
 	tween.tween_property(core,"scale",Vector3.ONE*size*1.9,.34).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_property(core_mat,"albedo_color:a",0.0,.3)
+	tween.tween_property(burst_mat,"albedo_color:a",0.0,.32)
 	tween.tween_property(ring,"scale",Vector3.ONE*size*2.3,.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(ring_mat,"albedo_color:a",0.0,.4)
 	for i in range(5):
-		var spark := Visual.sphere(root,Vector3.ZERO,Vector3.ONE*size*.16,color)
-		var spark_mat: StandardMaterial3D=(spark.material_override as StandardMaterial3D).duplicate()
-		spark.material_override=spark_mat
-		spark_mat.emission_enabled=true
-		spark_mat.emission=color
-		spark_mat.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
+		var spark := MeshInstance3D.new()
+		spark.mesh=fx_unit_sphere()
+		spark.scale=Vector3.ONE*size*.16
+		spark.material_override=burst_mat
+		root.add_child(spark)
 		var angle := TAU*i/5.0
 		var drift := Vector3(cos(angle),.7,sin(angle)).normalized()*(size*1.6)
 		tween.tween_property(spark,"position",drift,.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		tween.tween_property(spark,"scale",Vector3.ONE*size*.05,.4)
-		tween.tween_property(spark_mat,"albedo_color:a",0.0,.4)
 	tween.chain().tween_callback(func():
 		fx_live.erase(root)
 		root.queue_free())
@@ -1444,59 +1514,46 @@ func beam(from: Vector3,to: Vector3,color: Color) -> void:
 		if is_instance_valid(stale):
 			stale.queue_free()
 	# Oriented additive shaft with a white-hot core and an impact tip.
+	# Both shafts are shared unit cylinders stretched along their length.
 	var root := Node3D.new()
 	root.position=from
 	add_child(root)
 	fx_live.append(root)
 	var dir := offset.normalized()
-	var shaft := CylinderMesh.new()
-	shaft.top_radius=.075
-	shaft.bottom_radius=.075
-	shaft.height=offset.length()
-	shaft.radial_segments=6
-	shaft.rings=0
-	var middle_mesh := CylinderMesh.new()
-	middle_mesh.top_radius=.028
-	middle_mesh.bottom_radius=.028
-	middle_mesh.height=offset.length()
-	middle_mesh.radial_segments=6
-	middle_mesh.rings=0
+	var length := offset.length()
 	var body := MeshInstance3D.new()
-	body.mesh=shaft
+	body.mesh=fx_beam_mesh()
 	body.position=offset*.5
+	body.scale=Vector3(1,length,1)
 	body.quaternion=Quaternion(Vector3.UP,dir)
 	var middle := MeshInstance3D.new()
-	middle.mesh=middle_mesh
+	middle.mesh=fx_beam_core_mesh()
 	middle.position=body.position
 	middle.quaternion=body.quaternion
-	var glow_mat := StandardMaterial3D.new()
+	middle.scale=body.scale
+	var glow_mat: StandardMaterial3D=fx_base_material(color).duplicate()
 	glow_mat.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED
 	glow_mat.albedo_color=Color(color.r,color.g,color.b,.85)
 	glow_mat.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
 	glow_mat.blend_mode=BaseMaterial3D.BLEND_MODE_ADD
 	body.material_override=glow_mat
-	var core_mat := StandardMaterial3D.new()
-	core_mat.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED
-	core_mat.albedo_color=Color(1,1,.85,.9)
-	core_mat.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
-	core_mat.blend_mode=BaseMaterial3D.BLEND_MODE_ADD
+	var core_mat: StandardMaterial3D=fx_beam_core_material().duplicate()
 	middle.material_override=core_mat
 	root.add_child(body)
 	root.add_child(middle)
-	var tip := Visual.sphere(root,offset,Vector3.ONE*.3,color)
-	var tip_mat: StandardMaterial3D=(tip.material_override as StandardMaterial3D).duplicate()
-	tip.material_override=tip_mat
-	tip_mat.emission_enabled=true
-	tip_mat.emission=color
-	tip_mat.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
+	var tip := MeshInstance3D.new()
+	tip.mesh=fx_unit_sphere()
+	tip.position=offset
+	tip.scale=Vector3.ONE*.3
+	tip.material_override=glow_mat
+	root.add_child(tip)
 	var tween := create_tween()
 	tween.set_parallel(true)
 	tween.tween_property(glow_mat,"albedo_color:a",0.0,.22)
 	tween.tween_property(core_mat,"albedo_color:a",0.0,.16)
-	tween.tween_property(body,"scale",Vector3(1.8,1,1.8),.22)
-	tween.tween_property(middle,"scale",Vector3(1.2,1,1.2),.22)
+	tween.tween_property(body,"scale",Vector3(1.8,length,1.8),.22)
+	tween.tween_property(middle,"scale",Vector3(1.2,length,1.2),.22)
 	tween.tween_property(tip,"scale",Vector3.ONE*.9,.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_property(tip_mat,"albedo_color:a",0.0,.22)
 	tween.chain().tween_callback(func():
 		fx_live.erase(root)
 		root.queue_free())
@@ -1562,6 +1619,8 @@ func release_cargo(id: int,velocity: Vector3) -> void:
 		held.freeze=false
 		held.collision_layer=4
 		held.linear_velocity=velocity
+		# Thrown goods leave a small pop where they leave the mitts.
+		fx.rpc(held.global_position,Color("e8e2d0"),.45)
 	data.held=""
 
 func render_hazards() -> void:

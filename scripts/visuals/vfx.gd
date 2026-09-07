@@ -3,23 +3,35 @@ extends RefCounted
 ## Small local-only cosmetic bursts: dust, sparkles, transform bursts.
 ## Purely visual - derived from already-synced state, no RPCs, no saved data.
 ## Positions are parent-local offsets.
+## Meshes and materials are shared statics; bursts allocate only nodes, and
+## chunks vanish by shrinking instead of fading a shared material's alpha.
+
+static var _unit: SphereMesh
+static var _mats: Dictionary = {}
+
 
 static func _chunk(parent: Node3D, pos: Vector3, size: Vector3, color: Color, emissive: float) -> MeshInstance3D:
-	var mesh := SphereMesh.new()
-	mesh.radial_segments = 8
-	mesh.rings = 5
+	if _unit == null:
+		_unit = SphereMesh.new()
+		_unit.radius = 1.0
+		_unit.height = 2.0
+		_unit.radial_segments = 8
+		_unit.rings = 5
+	var key := "%s|%s" % [color.to_html(), emissive]
+	var mat: StandardMaterial3D = _mats.get(key)
+	if mat == null:
+		mat = StandardMaterial3D.new()
+		mat.albedo_color = color
+		mat.roughness = .9
+		if emissive > 0.0:
+			mat.emission_enabled = true
+			mat.emission = color
+			mat.emission_energy_multiplier = emissive
+		_mats[key] = mat
 	var instance := MeshInstance3D.new()
-	instance.mesh = mesh
+	instance.mesh = _unit
 	instance.position = pos
 	instance.scale = size
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.roughness = .9
-	if emissive > 0.0:
-		mat.emission_enabled = true
-		mat.emission = color
-		mat.emission_energy_multiplier = emissive
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	instance.material_override = mat
 	parent.add_child(instance)
 	return instance
@@ -29,11 +41,14 @@ static func _fly(instance: MeshInstance3D, velocity: Vector3, life: float, grow 
 	if not instance.is_inside_tree():
 		instance.queue_free()
 		return
+	# Swell, then shrink to nothing: the material is shared, so alpha fades
+	# are off the table and the scale read carries the whole effect.
+	var full := instance.scale * grow
 	var tween := instance.create_tween()
 	tween.set_parallel(true)
 	tween.tween_property(instance, "position", instance.position + velocity, life).set_ease(Tween.EASE_OUT)
-	tween.tween_property(instance, "scale", instance.scale * grow, life)
-	tween.tween_property(instance.material_override, "albedo_color:a", 0.0, life).set_ease(Tween.EASE_IN)
+	tween.tween_property(instance, "scale", full, life * .4).set_ease(Tween.EASE_OUT)
+	tween.tween_property(instance, "scale", full * .05, life * .6).set_ease(Tween.EASE_IN).set_delay(life * .4)
 	tween.chain().tween_callback(instance.queue_free)
 
 
