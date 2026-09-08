@@ -1,0 +1,119 @@
+[gd_scene format=3]
+
+[sub_resource type="StandardMaterial3D" id="panel"]
+albedo_color = Color(0.169, 0.129, 0.22, 1)
+roughness = 0.82
+
+[sub_resource type="StandardMaterial3D" id="stripe"]
+albedo_color = Color(0.91, 0.698, 0.227, 1)
+roughness = 0.6
+emission_enabled = true
+emission = Color(0.91, 0.698, 0.227, 1)
+emission_energy_multiplier = 2.2
+
+[sub_resource type="StandardMaterial3D" id="trim"]
+albedo_color = Color(0.114, 0.082, 0.141, 1)
+roughness = 0.85
+
+[sub_resource type="StandardMaterial3D" id="wood"]
+albedo_color = Color(0.706, 0.463, 0.247, 1)
+roughness = 0.82
+
+[sub_resource type="StandardMaterial3D" id="wood_dark"]
+albedo_color = Color(0.478, 0.294, 0.165, 1)
+roughness = 0.82
+
+[sub_resource type="StandardMaterial3D" id="steel"]
+albedo_color = Color(0.604, 0.639, 0.671, 1)
+roughness = 0.5
+metallic = 0.4
+
+[sub_resource type="StandardMaterial3D" id="teal_light"]
+albedo_color = Color(0.62, 0.941, 0.894, 1)
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="cheese_pale"]
+albedo_color = Color(0.949, 0.851, 0.545, 1)
+roughness = 0.8
+
+[sub_resource type="BoxMesh" id="unit_box"]
+size = Vector3(1, 1, 1)
+
+[sub_resource type="CylinderMesh" id="cyl_jar"]
+top_radius = 0.12
+bottom_radius = 0.12
+height = 0.3
+radial_segments = 12
+
+[sub_resource type="CylinderMesh" id="cyl_can"]
+top_radius = 0.1
+bottom_radius = 0.1
+height = 0.24
+radial_segments = 12
+
+[node name="ShelfEndcap" type="Node3D"]
+
+[node name="BackPanel" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, 0)
+scale = Vector3(2.4, 2.3, 0.12)
+mesh = SubResource("unit_box")
+material_override = SubResource("panel")
+
+[node name="SideTrimL" type="MeshInstance3D" parent="."]
+position = Vector3(-1.2, 0, 0.02)
+scale = Vector3(0.1, 2.3, 0.16)
+mesh = SubResource("unit_box")
+material_override = SubResource("trim")
+
+[node name="SideTrimR" type="MeshInstance3D" parent="."]
+position = Vector3(1.2, 0, 0.01)
+scale = Vector3(0.1, 2.3, 0.16)
+mesh = SubResource("unit_box")
+material_override = SubResource("trim")
+
+[node name="GlowStripe" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.95, -0.05)
+scale = Vector3(2.4, 0.2, 0.2)
+mesh = SubResource("unit_box")
+material_override = SubResource("stripe")
+
+[node name="HeaderBoard" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.32, -0.02)
+scale = Vector3(2.5, 0.12, 0.22)
+mesh = SubResource("unit_box")
+material_override = SubResource("wood_dark")
+
+[node name="HeaderBracketL" type="MeshInstance3D" parent="."]
+position = Vector3(-1.0, 1.18, -0.02)
+scale = Vector3(0.08, 0.24, 0.16)
+mesh = SubResource("unit_box")
+material_override = SubResource("steel")
+
+[node name="HeaderBracketR" type="MeshInstance3D" parent="."]
+position = Vector3(1.0, 1.18, -0.02)
+scale = Vector3(0.08, 0.24, 0.16)
+mesh = SubResource("unit_box")
+material_override = SubResource("steel")
+
+[node name="BaseShelf" type="MeshInstance3D" parent="."]
+position = Vector3(0, -1.02, -0.16)
+scale = Vector3(2.3, 0.08, 0.5)
+mesh = SubResource("unit_box")
+material_override = SubResource("wood")
+
+[node name="ShelfPropJar" type="MeshInstance3D" parent="."]
+position = Vector3(-0.7, -0.83, -0.16)
+mesh = SubResource("cyl_jar")
+material_override = SubResource("teal_light")
+
+[node name="ShelfPropBox" type="MeshInstance3D" parent="."]
+position = Vector3(0.05, -0.86, -0.16)
+rotation_degrees = Vector3(0, 14, 0)
+scale = Vector3(0.3, 0.24, 0.3)
+mesh = SubResource("unit_box")
+material_override = SubResource("cheese_pale")
+
+[node name="ShelfPropCan" type="MeshInstance3D" parent="."]
+position = Vector3(0.75, -0.85, -0.16)
+mesh = SubResource("cyl_can")
+material_override = SubResource("steel")

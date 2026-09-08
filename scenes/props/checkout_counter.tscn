@@ -1,0 +1,321 @@
+[gd_scene format=3]
+
+[sub_resource type="StandardMaterial3D" id="top"]
+albedo_color = Color(0.122, 0.42, 0.408, 1)
+roughness = 0.72
+
+[sub_resource type="StandardMaterial3D" id="bay_a"]
+albedo_color = Color(0.706, 0.463, 0.247, 1)
+roughness = 0.82
+
+[sub_resource type="StandardMaterial3D" id="bay_b"]
+albedo_color = Color(0.169, 0.129, 0.22, 1)
+roughness = 0.82
+
+[sub_resource type="StandardMaterial3D" id="kick"]
+albedo_color = Color(0.114, 0.082, 0.141, 1)
+roughness = 0.85
+
+[sub_resource type="StandardMaterial3D" id="brass"]
+albedo_color = Color(0.85, 0.66, 0.3, 1)
+roughness = 0.35
+metallic = 0.7
+
+[sub_resource type="StandardMaterial3D" id="post"]
+albedo_color = Color(0.478, 0.294, 0.165, 1)
+roughness = 0.82
+
+[sub_resource type="StandardMaterial3D" id="steel"]
+albedo_color = Color(0.604, 0.639, 0.671, 1)
+roughness = 0.5
+metallic = 0.4
+
+[sub_resource type="StandardMaterial3D" id="steel_dark"]
+albedo_color = Color(0.29, 0.322, 0.353, 1)
+roughness = 0.55
+metallic = 0.4
+
+[sub_resource type="StandardMaterial3D" id="gold"]
+albedo_color = Color(1, 0.824, 0.29, 1)
+roughness = 0.32
+metallic = 0.8
+
+[sub_resource type="StandardMaterial3D" id="reg_body"]
+albedo_color = Color(0.247, 0.659, 0.627, 1)
+roughness = 0.7
+
+[sub_resource type="StandardMaterial3D" id="screen"]
+albedo_color = Color(0.741, 0.91, 0.6, 1)
+roughness = 0.4
+emission_enabled = true
+emission = Color(0.741, 0.91, 0.6, 1)
+emission_energy_multiplier = 2.2
+
+[sub_resource type="StandardMaterial3D" id="teal_light"]
+albedo_color = Color(0.62, 0.941, 0.894, 1)
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="cream"]
+albedo_color = Color(0.992, 0.953, 0.816, 1)
+roughness = 0.8
+
+[sub_resource type="StandardMaterial3D" id="cheese"]
+albedo_color = Color(0.91, 0.698, 0.227, 1)
+roughness = 0.8
+
+[sub_resource type="BoxMesh" id="unit_box"]
+size = Vector3(1, 1, 1)
+
+[sub_resource type="SphereMesh" id="unit_sphere"]
+radius = 1.0
+height = 2.0
+radial_segments = 16
+rings = 8
+
+[sub_resource type="CylinderMesh" id="cyl_r09"]
+top_radius = 0.09
+bottom_radius = 0.09
+height = 0.04
+radial_segments = 12
+
+[sub_resource type="CylinderMesh" id="cyl_r10"]
+top_radius = 0.1
+bottom_radius = 0.1
+height = 0.26
+radial_segments = 12
+
+[sub_resource type="CylinderMesh" id="cyl_r07"]
+top_radius = 0.07
+bottom_radius = 0.07
+height = 0.06
+radial_segments = 12
+
+[sub_resource type="CylinderMesh" id="cyl_r055"]
+top_radius = 0.055
+bottom_radius = 0.055
+height = 0.2
+radial_segments = 12
+
+[node name="CheckoutCounter" type="Node3D"]
+
+[node name="TopSlab" type="MeshInstance3D" parent="."]
+position = Vector3(0, 2.07, 0)
+scale = Vector3(3.4, 0.18, 9.4)
+mesh = SubResource("unit_box")
+material_override = SubResource("top")
+
+[node name="TopEdgeFront" type="MeshInstance3D" parent="."]
+position = Vector3(-1.62, 2.05, 0)
+scale = Vector3(0.16, 0.22, 9.42)
+mesh = SubResource("unit_box")
+material_override = SubResource("brass")
+
+[node name="Bay0" type="MeshInstance3D" parent="."]
+position = Vector3(-1.58, 1.05, 1.8)
+rotation_degrees = Vector3(0, 0, -1.5)
+scale = Vector3(0.08, 1.72, 1.75)
+mesh = SubResource("unit_box")
+material_override = SubResource("bay_a")
+
+[node name="Bay1" type="MeshInstance3D" parent="."]
+position = Vector3(-1.58, 1.05, -0.2)
+rotation_degrees = Vector3(0, 0, 2)
+scale = Vector3(0.08, 1.72, 1.75)
+mesh = SubResource("unit_box")
+material_override = SubResource("bay_b")
+
+[node name="Bay2" type="MeshInstance3D" parent="."]
+position = Vector3(-1.58, 1.05, -2.2)
+rotation_degrees = Vector3(0, 0, -1.5)
+scale = Vector3(0.08, 1.72, 1.75)
+mesh = SubResource("unit_box")
+material_override = SubResource("bay_a")
+
+[node name="Bay3" type="MeshInstance3D" parent="."]
+position = Vector3(-1.58, 1.05, -4.0)
+rotation_degrees = Vector3(0, 0, -1.5)
+scale = Vector3(0.08, 1.72, 1.75)
+mesh = SubResource("unit_box")
+material_override = SubResource("bay_b")
+
+[node name="BayHandle0" type="MeshInstance3D" parent="."]
+position = Vector3(-1.64, 1.3, 0.95)
+scale = Vector3(0.05, 0.05, 0.5)
+mesh = SubResource("unit_box")
+material_override = SubResource("gold")
+
+[node name="BayHandle1" type="MeshInstance3D" parent="."]
+position = Vector3(-1.64, 1.3, -1.05)
+scale = Vector3(0.05, 0.05, 0.5)
+mesh = SubResource("unit_box")
+material_override = SubResource("gold")
+
+[node name="Kick" type="MeshInstance3D" parent="."]
+position = Vector3(-1.55, 0.28, 0)
+scale = Vector3(0.07, 0.36, 9.4)
+mesh = SubResource("unit_box")
+material_override = SubResource("kick")
+
+[node name="BaseShadow" type="MeshInstance3D" parent="."]
+position = Vector3(-1.53, 0.06, 0)
+scale = Vector3(0.1, 0.12, 9.4)
+mesh = SubResource("unit_box")
+material_override = SubResource("kick")
+
+[node name="Rail" type="MeshInstance3D" parent="."]
+position = Vector3(-1.55, 1.97, 0)
+scale = Vector3(0.09, 0.15, 9.4)
+mesh = SubResource("unit_box")
+material_override = SubResource("brass")
+
+[node name="PostA" type="MeshInstance3D" parent="."]
+position = Vector3(-1.5, 2.6, -0.4)
+rotation_degrees = Vector3(0, 0, -2)
+scale = Vector3(0.18, 0.95, 0.22)
+mesh = SubResource("unit_box")
+material_override = SubResource("post")
+
+[node name="PostB" type="MeshInstance3D" parent="."]
+position = Vector3(-1.5, 2.6, -3.6)
+rotation_degrees = Vector3(0, 0, 3)
+scale = Vector3(0.18, 0.95, 0.22)
+mesh = SubResource("unit_box")
+material_override = SubResource("post")
+
+[node name="RegisterBody" type="MeshInstance3D" parent="."]
+position = Vector3(0, 2.55, 3)
+scale = Vector3(1, 0.8, 0.8)
+mesh = SubResource("unit_box")
+material_override = SubResource("reg_body")
+
+[node name="RegisterScreen" type="MeshInstance3D" parent="."]
+position = Vector3(0, 2.7, 3.44)
+scale = Vector3(0.7, 0.35, 0.06)
+mesh = SubResource("unit_box")
+material_override = SubResource("screen")
+
+[node name="RegisterKeys" type="MeshInstance3D" parent="."]
+position = Vector3(0, 2.68, 2.68)
+scale = Vector3(0.5, 0.06, 0.3)
+mesh = SubResource("unit_box")
+material_override = SubResource("steel_dark")
+
+[node name="BellBase" type="MeshInstance3D" parent="."]
+position = Vector3(-1.05, 2.2, 1.7)
+mesh = SubResource("cyl_r09")
+material_override = SubResource("gold")
+
+[node name="BellDome" type="MeshInstance3D" parent="."]
+position = Vector3(-1.05, 2.26, 1.7)
+scale = Vector3(0.09, 0.07, 0.09)
+mesh = SubResource("unit_sphere")
+material_override = SubResource("gold")
+
+[node name="BellButton" type="MeshInstance3D" parent="."]
+position = Vector3(-1.05, 2.32, 1.7)
+scale = Vector3(0.03, 0.03, 0.03)
+mesh = SubResource("unit_sphere")
+material_override = SubResource("steel_dark")
+
+[node name="CardReader" type="MeshInstance3D" parent="."]
+position = Vector3(-1.2, 2.25, 0.7)
+rotation_degrees = Vector3(12, 0, -8)
+scale = Vector3(0.22, 0.16, 0.14)
+mesh = SubResource("unit_box")
+material_override = SubResource("steel")
+
+[node name="TipJar" type="MeshInstance3D" parent="."]
+position = Vector3(-0.85, 2.31, 2.2)
+mesh = SubResource("cyl_r10")
+material_override = SubResource("teal_light")
+
+[node name="TipCoins" type="MeshInstance3D" parent="."]
+position = Vector3(-0.85, 2.36, 2.2)
+mesh = SubResource("cyl_r07")
+material_override = SubResource("gold")
+
+[node name="ReceiptRoll" type="MeshInstance3D" parent="."]
+position = Vector3(0.7, 2.27, 1.7)
+mesh = SubResource("cyl_r055")
+material_override = SubResource("cream")
+
+[node name="ScaleBase" type="MeshInstance3D" parent="."]
+position = Vector3(-0.5, 2.22, -2.2)
+scale = Vector3(0.4, 0.08, 0.4)
+mesh = SubResource("unit_box")
+material_override = SubResource("steel")
+
+[node name="ScaleDome" type="MeshInstance3D" parent="."]
+position = Vector3(-0.5, 2.34, -2.2)
+scale = Vector3(0.17, 0.14, 0.17)
+mesh = SubResource("unit_sphere")
+material_override = SubResource("steel")
+
+[node name="SampleTray" type="MeshInstance3D" parent="."]
+position = Vector3(-0.9, 2.2, -3.4)
+scale = Vector3(0.55, 0.05, 0.4)
+mesh = SubResource("unit_box")
+material_override = SubResource("bay_a")
+
+[node name="SampleCube0" type="MeshInstance3D" parent="."]
+position = Vector3(-1.05, 2.27, -3.4)
+scale = Vector3(0.11, 0.1, 0.11)
+mesh = SubResource("unit_box")
+material_override = SubResource("cheese")
+
+[node name="SampleCube1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.89, 2.27, -3.4)
+scale = Vector3(0.11, 0.1, 0.11)
+mesh = SubResource("unit_box")
+material_override = SubResource("cheese")
+
+[node name="SampleCube2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.73, 2.27, -3.4)
+scale = Vector3(0.11, 0.1, 0.11)
+mesh = SubResource("unit_box")
+material_override = SubResource("cheese")
+
+[node name="SampleTag" type="Label3D" parent="."]
+position = Vector3(-0.9, 2.5, -3.4)
+text = "FREE SAMPLE*"
+font_size = 11
+pixel_size = 0.012
+outline_size = 5
+modulate = Color(0.812, 0.765, 0.659, 1)
+double_sided = true
+
+[node name="HangingBoard" type="MeshInstance3D" parent="."]
+position = Vector3(-1.6, 3.7, -0.2)
+rotation_degrees = Vector3(0, 90, 0)
+scale = Vector3(1.9, 0.7, 0.07)
+mesh = SubResource("unit_box")
+material_override = SubResource("bay_b")
+
+[node name="HangingBoardText" type="Label3D" parent="."]
+position = Vector3(-1.68, 3.7, -0.2)
+rotation_degrees = Vector3(0, 90, 0)
+text = "CHECKOUT"
+font_size = 15
+pixel_size = 0.012
+outline_size = 5
+modulate = Color(0.992, 0.953, 0.816, 1)
+double_sided = true
+
+[node name="BoardCord0" type="MeshInstance3D" parent="."]
+position = Vector3(-1.6, 4.55, -0.6)
+scale = Vector3(0.04, 0.75, 0.04)
+mesh = SubResource("unit_box")
+material_override = SubResource("steel_dark")
+
+[node name="BoardCord1" type="MeshInstance3D" parent="."]
+position = Vector3(-1.6, 4.55, -0.2)
+scale = Vector3(0.04, 0.75, 0.04)
+mesh = SubResource("unit_box")
+material_override = SubResource("steel_dark")
+
+[node name="UnderCrate" type="MeshInstance3D" parent="."]
+position = Vector3(-0.4, 0.55, -1.4)
+rotation_degrees = Vector3(0, 12, 0)
+scale = Vector3(0.8, 0.7, 0.8)
+mesh = SubResource("unit_box")
+material_override = SubResource("post")

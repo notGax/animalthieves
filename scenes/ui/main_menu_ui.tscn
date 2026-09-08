@@ -177,6 +177,19 @@ theme_override_styles/focus = SubResource("StyleBoxEmpty_button_focus")
 text = "JOIN"
 flat = true
 
+[node name="Settings" type="Button" parent="MainContainer/MainMenu/Buttons"]
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_override_colors/font_pressed_color = Color(0.42, 0.62, 0.82, 1)
+theme_override_colors/font_hover_color = Color(0.55, 0.75, 0.95, 1)
+theme_override_font_sizes/font_size = 35
+theme_override_styles/normal = SubResource("StyleBoxEmpty_button_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_pressed")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_button_focus")
+text = "SETTINGS"
+flat = true
+
 [node name="Option4" type="HBoxContainer" parent="MainContainer/MainMenu" unique_id=1327970814]
 layout_mode = 2
 size_flags_horizontal = 4
@@ -195,4 +208,5 @@ flat = true
 
 [connection signal="pressed" from="MainContainer/MainMenu/Buttons/Host" to="." method="_on_host_pressed"]
 [connection signal="pressed" from="MainContainer/MainMenu/Buttons/Join" to="." method="_on_join_pressed"]
+[connection signal="pressed" from="MainContainer/MainMenu/Buttons/Settings" to="." method="_on_settings_pressed"]
 [connection signal="pressed" from="MainContainer/MainMenu/Option4/Quit" to="." method="_on_quit_pressed"]

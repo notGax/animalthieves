@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://ccencq0lcd3ph" path="res://scenes/ui/multiplayer_chat_ui.tscn" id="5_x9g3h"]
 [ext_resource type="PackedScene" uid="uid://bx7mq8t8hjn7q" path="res://scenes/ui/main_menu_ui.tscn" id="6_x9g3h"]
 [ext_resource type="PackedScene" path="res://scenes/ui/pause_menu_ui.tscn" id="8_pause"]
+[ext_resource type="PackedScene" path="res://scenes/ui/settings_menu_ui.tscn" id="10_settings"]
 [ext_resource type="PackedScene" path="res://scenes/ui/player_list_ui.tscn" id="9_player_list"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_main"]
@@ -101,4 +102,7 @@ visible = false
 visible = false
 
 [node name="PauseMenuUI" parent="." unique_id=358154633 instance=ExtResource("8_pause")]
+visible = false
+
+[node name="SettingsMenuUI" parent="." instance=ExtResource("10_settings")]
 visible = false

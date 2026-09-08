@@ -1,0 +1,247 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/settings_menu_ui.gd" id="1_script"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.055, 0.06, 0.07, 0.82)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_hover"]
+content_margin_left = 10.0
+content_margin_top = 4.0
+content_margin_right = 10.0
+content_margin_bottom = 4.0
+bg_color = Color(0.22, 0.25, 0.29, 0.92)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_pressed"]
+content_margin_left = 10.0
+content_margin_top = 4.0
+content_margin_right = 10.0
+content_margin_bottom = 4.0
+bg_color = Color(0.14, 0.16, 0.19, 0.96)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_button_focus"]
+
+[node name="SettingsMenuUI" type="Control"]
+process_mode = 3
+z_index = 100
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+script = ExtResource("1_script")
+
+[node name="Overlay" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.58)
+
+[node name="Panel" type="PanelContainer" parent="Overlay"]
+custom_minimum_size = Vector2(480, 0)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -240.0
+offset_top = -290.0
+offset_right = 240.0
+offset_bottom = 290.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="Margin" type="MarginContainer" parent="Overlay/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 32
+theme_override_constants/margin_bottom = 24
+
+[node name="Root" type="VBoxContainer" parent="Overlay/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="Overlay/Panel/Margin/Root"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 36
+text = "SETTINGS"
+horizontal_alignment = 1
+
+[node name="Tabs" type="HBoxContainer" parent="Overlay/Panel/Margin/Root"]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="TabAudio" type="Button" parent="Overlay/Panel/Margin/Root/Tabs"]
+custom_minimum_size = Vector2(150, 34)
+layout_mode = 2
+toggle_mode = true
+mouse_default_cursor_shape = 2
+theme_override_colors/font_hover_color = Color(0.55, 0.75, 0.95, 1)
+theme_override_colors/font_pressed_color = Color(0.95, 0.78, 0.4, 1)
+theme_override_font_sizes/font_size = 20
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_pressed")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_button_focus")
+text = "AUDIO"
+
+[node name="TabControls" type="Button" parent="Overlay/Panel/Margin/Root/Tabs"]
+custom_minimum_size = Vector2(150, 34)
+layout_mode = 2
+toggle_mode = true
+mouse_default_cursor_shape = 2
+theme_override_colors/font_hover_color = Color(0.55, 0.75, 0.95, 1)
+theme_override_colors/font_pressed_color = Color(0.95, 0.78, 0.4, 1)
+theme_override_font_sizes/font_size = 20
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_pressed")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_button_focus")
+text = "CONTROLS"
+
+[node name="AudioPage" type="VBoxContainer" parent="Overlay/Panel/Margin/Root"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="RowMaster" type="HBoxContainer" parent="Overlay/Panel/Margin/Root/AudioPage"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Label" type="Label" parent="Overlay/Panel/Margin/Root/AudioPage/RowMaster"]
+custom_minimum_size = Vector2(96, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Master"
+
+[node name="Slider" type="HSlider" parent="Overlay/Panel/Margin/Root/AudioPage/RowMaster"]
+custom_minimum_size = Vector2(220, 28)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+mouse_default_cursor_shape = 2
+max_value = 1.0
+step = 0.05
+value = 1.0
+
+[node name="Pct" type="Label" parent="Overlay/Panel/Margin/Root/AudioPage/RowMaster"]
+custom_minimum_size = Vector2(52, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 2
+text = "100%"
+
+[node name="RowMusic" type="HBoxContainer" parent="Overlay/Panel/Margin/Root/AudioPage"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Label" type="Label" parent="Overlay/Panel/Margin/Root/AudioPage/RowMusic"]
+custom_minimum_size = Vector2(96, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Music"
+
+[node name="Slider" type="HSlider" parent="Overlay/Panel/Margin/Root/AudioPage/RowMusic"]
+custom_minimum_size = Vector2(220, 28)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+mouse_default_cursor_shape = 2
+max_value = 1.0
+step = 0.05
+value = 1.0
+
+[node name="Pct" type="Label" parent="Overlay/Panel/Margin/Root/AudioPage/RowMusic"]
+custom_minimum_size = Vector2(52, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 2
+text = "100%"
+
+[node name="RowSfx" type="HBoxContainer" parent="Overlay/Panel/Margin/Root/AudioPage"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Label" type="Label" parent="Overlay/Panel/Margin/Root/AudioPage/RowSfx"]
+custom_minimum_size = Vector2(96, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "SFX"
+
+[node name="Slider" type="HSlider" parent="Overlay/Panel/Margin/Root/AudioPage/RowSfx"]
+custom_minimum_size = Vector2(220, 28)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+mouse_default_cursor_shape = 2
+max_value = 1.0
+step = 0.05
+value = 1.0
+
+[node name="Pct" type="Label" parent="Overlay/Panel/Margin/Root/AudioPage/RowSfx"]
+custom_minimum_size = Vector2(52, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 2
+text = "100%"
+
+[node name="ControlsPage" type="VBoxContainer" parent="Overlay/Panel/Margin/Root"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Scroll" type="ScrollContainer" parent="Overlay/Panel/Margin/Root/ControlsPage"]
+custom_minimum_size = Vector2(0, 400)
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="BindList" type="VBoxContainer" parent="Overlay/Panel/Margin/Root/ControlsPage/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="Reset" type="Button" parent="Overlay/Panel/Margin/Root/ControlsPage"]
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_override_colors/font_hover_color = Color(0.55, 0.75, 0.95, 1)
+theme_override_colors/font_pressed_color = Color(0.42, 0.62, 0.82, 1)
+theme_override_font_sizes/font_size = 20
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_pressed")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_button_focus")
+text = "RESET DEFAULTS"
+flat = true
+
+[node name="Back" type="Button" parent="Overlay/Panel/Margin/Root"]
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_override_colors/font_hover_color = Color(0.55, 0.75, 0.95, 1)
+theme_override_colors/font_pressed_color = Color(0.42, 0.62, 0.82, 1)
+theme_override_font_sizes/font_size = 28
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_pressed")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_button_focus")
+text = "BACK"
+flat = true
+
+[connection signal="pressed" from="Overlay/Panel/Margin/Root/ControlsPage/Reset" to="." method="_on_reset_pressed"]
+[connection signal="pressed" from="Overlay/Panel/Margin/Root/Back" to="." method="_on_back_pressed"]

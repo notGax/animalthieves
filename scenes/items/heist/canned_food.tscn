@@ -15,19 +15,52 @@ albedo_color = Color(0.6039, 0.6392, 0.6706, 1)
 roughness = 0.82
 
 [sub_resource type="CylinderMesh" id="r3"]
+top_radius = 0.235
+bottom_radius = 0.235
+height = 0.05
+radial_segments = 12
+
+[sub_resource type="StandardMaterial3D" id="r4"]
+albedo_color = Color(0.7647, 0.7922, 0.8235, 1)
+roughness = 0.82
+
+[sub_resource type="CylinderMesh" id="r5"]
+top_radius = 0.235
+bottom_radius = 0.235
+height = 0.05
+radial_segments = 12
+
+[sub_resource type="CylinderMesh" id="r6"]
 top_radius = 0.225
 bottom_radius = 0.225
 height = 0.25
 radial_segments = 12
 
-[sub_resource type="StandardMaterial3D" id="r4"]
+[sub_resource type="StandardMaterial3D" id="r7"]
 albedo_color = Color(0.9922, 0.9529, 0.8157, 1)
 roughness = 0.82
 
-[sub_resource type="BoxShape3D" id="r5"]
+[sub_resource type="CylinderMesh" id="r8"]
+top_radius = 0.226
+bottom_radius = 0.226
+height = 0.07
+radial_segments = 12
+
+[sub_resource type="StandardMaterial3D" id="r9"]
+albedo_color = Color(0.2471, 0.6588, 0.6275, 1)
+roughness = 0.82
+
+[sub_resource type="BoxMesh" id="r10"]
+size = Vector3(0.12, 0.02, 0.05)
+
+[sub_resource type="StandardMaterial3D" id="r11"]
+albedo_color = Color(1.0, 0.8235, 0.2902, 1)
+roughness = 0.82
+
+[sub_resource type="BoxShape3D" id="r12"]
 size = Vector3(0.65, 0.8, 0.5)
 
-[sub_resource type="SceneReplicationConfig" id="r6"]
+[sub_resource type="SceneReplicationConfig" id="r13"]
 properties/0/path = NodePath(".:position")
 properties/0/spawn = true
 properties/0/replication_mode = 2
@@ -51,14 +84,34 @@ position = Vector3(0, 0.3, 0)
 mesh = SubResource("r1")
 material_override = SubResource("r2")
 
-[node name="Label" type="MeshInstance3D" parent="."]
-position = Vector3(0, 0.3, 0)
+[node name="RimTop" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.575, 0)
 mesh = SubResource("r3")
 material_override = SubResource("r4")
 
+[node name="RimBottom" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.025, 0)
+mesh = SubResource("r5")
+material_override = SubResource("r4")
+
+[node name="Label" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.3, 0)
+mesh = SubResource("r6")
+material_override = SubResource("r7")
+
+[node name="LabelStripe" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.4, 0)
+mesh = SubResource("r8")
+material_override = SubResource("r9")
+
+[node name="PullTab" type="MeshInstance3D" parent="."]
+position = Vector3(0.09, 0.615, 0)
+mesh = SubResource("r10")
+material_override = SubResource("r11")
+
 [node name="Collision" type="CollisionShape3D" parent="."]
 position = Vector3(0, 0.4, 0)
-shape = SubResource("r5")
+shape = SubResource("r12")
 
 [node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
-replication_config = SubResource("r6")
+replication_config = SubResource("r13")

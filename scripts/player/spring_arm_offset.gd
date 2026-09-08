@@ -87,9 +87,19 @@ func _apply_feedback(delta: float) -> void:
 	if world:
 		state = world.player_state.get(str(player.name), {})
 	if state.get("vehicle", "") != "":
-		boost = minf(8.0, planar * .5)
+		# Per-vehicle speed stretch: the racecar's camera pulls harder than
+		# the cart's (profile-driven, no new network data).
+		var vehicle_profile: Dictionary = VehicleProfiles.profile(str(state.get("vehicle", "")))
+		boost = clampf(planar * float(vehicle_profile.get("fov_gain", .5)), 0.0, float(vehicle_profile.get("fov_max", 8.0)))
+		# Driving also eases the arm back so the vehicle fits the frame.
+		if _spring_arm and not is_first_person:
+			_spring_arm.spring_length = lerpf(_spring_arm.spring_length,
+				float(vehicle_profile.get("camera_distance", 6.5)), 1.0 - exp(-delta * 5.0))
 	elif Input.is_action_pressed("shift") and planar > 6.0:
 		boost = clampf((planar - 6.0) * 1.5, 0.0, 6.0)
+		_restore_arm_length(delta)
+	else:
+		_restore_arm_length(delta)
 	var ext: Vector3 = player.external_velocity
 	_fov_kick = maxf(_fov_kick * exp(-delta * 6.0), clampf((ext.y - 8.0) * .7, 0.0, 10.0))
 	_fov = lerpf(_fov, (first_person_fov if is_first_person else third_person_fov) + boost + _fov_kick, blend)
@@ -178,6 +188,12 @@ func _apply_axis_lock() -> void:
 		_spring_arm.rotation = Vector3(_pitch, 0.0, 0.0)
 	if _camera:
 		_camera.rotation = _camera_base_rot
+
+
+func _restore_arm_length(delta: float) -> void:
+	if _spring_arm == null or is_first_person:
+		return
+	_spring_arm.spring_length = lerpf(_spring_arm.spring_length, third_person_distance, 1.0 - exp(-delta * 5.0))
 
 
 func _apply_perspective() -> void:

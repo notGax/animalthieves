@@ -5,6 +5,8 @@ const Materials = preload("res://scripts/visuals/character_materials.gd")
 const Visual = preload("res://scripts/heist/slime_visual.gd")
 const Palette = preload("res://scripts/visuals/palette.gd")
 const Widgets = preload("res://scripts/visuals/hud_widgets.gd")
+const WorldFx = preload("res://scripts/visuals/world_fx.gd")
+const GameAudio = preload("res://scripts/audio/game_audio.gd")
 const GOODS := ["rotten_cheese","moonshine","canned_food","stolen_goods"]
 const SPECIES := ["rat","boar","bird","lizard"]
 const PRICES := {"grapple":80,"water":90,"crystal":65,"jetpack":180,"cart":100,"truck":260,"racecar":200}
@@ -33,6 +35,7 @@ var player_state: Dictionary = {}
 var enemies: Array = []
 var vehicles: Dictionary = {}
 var vehicle_inputs: Dictionary = {}
+var audio_occlusion: AudioOcclusion
 var campaign: Dictionary = {}
 var alarm := 0.0
 var sabotage := 0
@@ -46,7 +49,6 @@ var toast_clock := 0.0
 var vehicle_clock := 0.0
 var wipe_clock := 0.0
 var game_clock := 0.0
-var sound_cache: Dictionary = {}
 var carry_clock := 0.0
 var hazard_visuals: Array[Node3D] = []
 var bait_visuals: Array[Node3D] = []
@@ -82,6 +84,15 @@ func _ready() -> void:
 	build_vehicles()
 	build_security_cameras()
 	build_machine_visuals()
+	# The Rat Mart soundscape: fridge hums, cellar stills, in-store jingle.
+	# All placement and synthesis lives in GameAudio.
+	GameAudio.build_rat_mart_ambience(self)
+	# Wall occlusion runs after the ambience exists so its initial sweep
+	# registers every emitter; later one-shots and rig hooks arrive via
+	# tree signals.
+	audio_occlusion=AudioOcclusion.new()
+	audio_occlusion.name="AudioOcclusion"
+	add_child(audio_occlusion)
 	Network.player_connected.connect(_on_player_connected)
 	Network.server_disconnected.connect(_reset)
 	multiplayer.peer_disconnected.connect(_peer_left)
@@ -139,7 +150,10 @@ func _reset() -> void:
 		enemy.state="PATROL"
 	for kind in vehicles:
 		vehicles[kind].rider=0
+		vehicles[kind].ram_clock.clear()
 		vehicles[kind].node.position=vehicles[kind].home
+		vehicles[kind].node.rotation.y=0
+		vehicles[kind].rig.reset_network()
 	fresh_campaign()
 	apply_progress(false)
 	controls_clock=14.0
@@ -179,10 +193,15 @@ func ensure_player(id: int) -> Dictionary:
 
 
 ## First owned active tool that isn't the given one, or the first owned at all.
+## Legacy saves/snapshots can carry vehicles ("racecar" with gear=["cart","truck"])
+## or nothing owned at all - the starter grapple is then (re)granted so the
+## returned tool is always in ACTIVE_TOOLS AND in gear.
 func normalize_tool(tool: String) -> String:
 	for kind in ACTIVE_TOOLS:
 		if kind in campaign.gear and kind!=tool:
 			return kind
+	if "grapple" not in campaign.gear:
+		campaign.gear.append("grapple")
 	return "grapple"
 
 func live_players() -> Array:
@@ -409,7 +428,7 @@ func enemy_defeated(enemy: Node3D) -> void:
 			notice.rpc("BOSS DEFEATED! Recipe upgraded to level %d. $%d recovered."%[campaign.recipes[tier],150+tier*120])
 		apply_progress.rpc(int(campaign.recipes[0])>0)
 		fx.rpc(enemy.global_position+Vector3.UP*2,Color("d9ed84"),3.0)
-		play_sound.rpc("win")
+		play_sound.rpc("win",enemy.global_position+Vector3.UP*2)
 		save_campaign()
 	else:
 		campaign.cash+=12+enemy.tier*5
@@ -452,7 +471,7 @@ func _process(delta: float) -> void:
 		task="East road open. Raid the next store or replay an earlier heist."
 	if int(campaign.recipes[3])>0:
 		task="The mecha dragon is down. The Crooked Mile belongs to your crew."
-	hud.text="%s   |   CREW %d/4"%[location,Network.players.size()]
+	_set_text(hud,"hud","%s   |   CREW %d/4"%[location,Network.players.size()])
 	_update_widgets(data,task)
 	nearest=null
 	var distance := 3.3
@@ -464,9 +483,13 @@ func _process(delta: float) -> void:
 	# Controls legend: shown for the first moments of a session, then only the
 	# tiny dim hint stays - context prompts take priority over both.
 	var show_controls := controls_clock>0
-	prompt.text="G Grab/drop   LMB Slap/throw   RMB Tool   Q Tools   B Bait   H Eat   C Feed   R Form   X Slime" if show_controls else ""
+	# Legend labels come from the live InputMap so a rebound key reads correctly.
+	var prompt_text := "%s Grab/drop   %s Slap/throw   %s Tool   %s Tools   %s Bait   %s Eat   %s Feed   %s Form   %s Slime"%[
+		Prefs.action_label("carry"),Prefs.action_label("attack"),Prefs.action_label("tool_use"),
+		Prefs.action_label("cycle_tool"),Prefs.action_label("bait"),Prefs.action_label("eat"),
+		Prefs.action_label("feed"),Prefs.action_label("transform"),Prefs.action_label("slime")] if show_controls else ""
 	if nearest:
-		prompt.text="[F] "+str(nearest.get_meta("hint"))
+		prompt_text="["+Prefs.action_label("use_tool")+"] "+str(nearest.get_meta("hint"))
 	var near_teammate := false
 	for other in level.players_container.get_children():
 		if other==player:
@@ -474,15 +497,16 @@ func _process(delta: float) -> void:
 		if other.global_position.distance_to(player.global_position)>=3:
 			continue
 		if float(player_state.get(str(other.name),{}).get("hp",100))<=0:
-			prompt.text="[F] Revive teammate"
+			prompt_text="["+Prefs.action_label("use_tool")+"] Revive teammate"
 		else:
 			near_teammate=true
 	if near_teammate:
-		if prompt.text!="":
-			prompt.text+="  |  "
-		prompt.text+="[C] Feed"
+		if prompt_text!="":
+			prompt_text+="  |  "
+		prompt_text+="["+Prefs.action_label("feed")+"] Feed"
 	if data.get("held", "")!="":
-		prompt.text="CARRYING MERCHANDISE  |  G Drop  |  LMB Throw  |  F Sell at the loading bay"
+		prompt_text="CARRYING MERCHANDISE  |  %s Drop  |  %s Throw  |  %s Sell at the loading bay"%[
+			Prefs.action_label("carry"),Prefs.action_label("attack"),Prefs.action_label("use_tool")]
 	carry_clock+=delta
 	if carry_clock>.1:
 		carry_clock=0
@@ -494,9 +518,14 @@ func _process(delta: float) -> void:
 	render_cameras()
 	var riding: String=data.get("vehicle","")
 	if riding!="" and vehicles.has(riding):
-		player.global_position=vehicles[riding].node.global_position+Vector3(0,1.0,0)
+		# Seat the rider on the rig's DriverMarker (cart pushes from behind,
+		# truck cab, racecar cockpit) instead of a fixed +1m offset.
+		player.global_position=vehicles[riding].rig.driver_marker.global_position
 		player.velocity=Vector3.ZERO
-		prompt.text="WASD Drive   |   F Dismount   |   Drive to the loading bay to unload"
+		prompt_text="%s%s%s%s Drive   |   %s Dismount   |   Drive to the loading bay to unload"%[
+			Prefs.action_label("move_forward"),Prefs.action_label("move_backward"),
+			Prefs.action_label("move_left"),Prefs.action_label("move_right"),
+			Prefs.action_label("use_tool")]
 		vehicle_clock+=delta
 		if vehicle_clock>.1 and not level.is_camera_input_blocked():
 			vehicle_clock=0
@@ -509,11 +538,14 @@ func _process(delta: float) -> void:
 	else:
 		for kind in vehicles:
 			if kind in campaign.gear and vehicles[kind].node.global_position.distance_to(player.global_position)<3:
-				prompt.text="[F] Drive "+TOOL_NAMES[kind]
+				prompt_text="["+Prefs.action_label("use_tool")+"] Drive "+TOOL_NAMES[kind]
 	if float(data.get("hp",100))<=0:
-		prompt.text="DOWNED - teammates can revive you. Rescue in %ds."%maxi(0,30-int(data.get("down_time",0)))
+		prompt_text="DOWNED - teammates can revive you. Rescue in %ds."%maxi(0,30-int(data.get("down_time",0)))
+	# Diff-guarded assignment: the prompt label only rebuilds when its
+	# content actually changed.
+	_set_text(prompt,"prompt",prompt_text)
 	# The pill only exists while it says something; otherwise a tiny dim hint.
-	var has_message := prompt.text!=""
+	var has_message := prompt_text!=""
 	controls_hint.visible=prompt.visible and not has_message
 	prompt_frame.visible=prompt.visible and (has_message or controls_hint.visible)
 	if shop_open:
@@ -577,31 +609,30 @@ func submit(action: String, argument: String="") -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not local_player() or get_tree().current_scene.main_menu.is_menu_visible():
 		return
-	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode==KEY_ESCAPE and shop_open:
+	if event.is_action_pressed("pause") and shop_open:
 		close_shop()
 		get_viewport().set_input_as_handled()
 		return
 	if get_tree().current_scene.is_camera_input_blocked():
 		return
 	if event is InputEventMouseButton and event.pressed:
-		if event.button_index==MOUSE_BUTTON_LEFT:
+		if event.is_action_pressed("attack"):
 			submit("attack")
-		elif event.button_index==MOUSE_BUTTON_RIGHT:
+		elif event.is_action_pressed("tool_use"):
 			submit("tool")
 	if event is InputEventKey and event.pressed and not event.echo:
-		match event.physical_keycode:
-			KEY_F:
-				if nearest and str(nearest.name)=="Trader":
-					open_shop()
-				else:
-					submit("interact",str(nearest.name) if nearest else "")
-			KEY_Q: submit("cycle")
-			KEY_G: submit("carry")
-			KEY_B: submit("bait")
-			KEY_H: submit("eat")
-			KEY_C: submit("feed")
-			KEY_R: submit("transform")
-			KEY_X: submit("slime")
+		if event.is_action_pressed("use_tool"):
+			if nearest and str(nearest.name)=="Trader":
+				open_shop()
+			else:
+				submit("interact",str(nearest.name) if nearest else "")
+		elif event.is_action_pressed("cycle_tool"): submit("cycle")
+		elif event.is_action_pressed("carry"): submit("carry")
+		elif event.is_action_pressed("bait"): submit("bait")
+		elif event.is_action_pressed("eat"): submit("eat")
+		elif event.is_action_pressed("feed"): submit("feed")
+		elif event.is_action_pressed("transform"): submit("transform")
+		elif event.is_action_pressed("slime"): submit("slime")
 
 @rpc("any_peer","call_local","reliable")
 func request_action(action: String,argument: String,direction: Vector3) -> void:
@@ -671,6 +702,7 @@ func request_action(action: String,argument: String,direction: Vector3) -> void:
 				data.last_form=data.form
 				data.form_cooldown=120.0
 				fx.rpc(player.global_position,Color("a9df9f"),1.0)
+				play_sound.rpc("transform",player.global_position+Vector3.UP)
 		"slime": data.form="slime"
 	broadcast_state()
 
@@ -712,7 +744,7 @@ func feed_player(player: CharacterBody3D,direction: Vector3) -> void:
 		var fed: String=Network.players.get(int(str(target.name)),{}).get("nick","a teammate")
 		notice.rpc("%s fed %s the %s."%[feeder,fed,ItemDatabase.get_item(item_id).name])
 		fx.rpc(target.global_position+Vector3.UP,Color("b9e597"),.8)
-		play_sound.rpc("heal")
+		play_sound.rpc("heal",target.global_position+Vector3.UP)
 		return
 
 func melee(player: CharacterBody3D,direction: Vector3) -> void:
@@ -735,7 +767,7 @@ func melee(player: CharacterBody3D,direction: Vector3) -> void:
 			# Boss hits read heavier than guard hits; wall impacts stay the
 			# strongest pop in the game.
 			fx.rpc(enemy.global_position+Vector3.UP,Color("f2d9a1"),1.1 if enemy.boss else .4)
-	play_sound.rpc("slap")
+	play_sound.rpc("slap",player.global_position+Vector3.UP)
 	# Fire-breathing lizard form and ignitable spilled spirits.
 	if data.form=="lizard":
 		fire_breath(player.global_position,Vector3(direction.x,0,direction.z).normalized(),str(player.name))
@@ -753,7 +785,7 @@ func interact(player: CharacterBody3D,marker_name: String) -> void:
 		var other := player_for(int(other_key))
 		if other and other!=player and float(player_state[other_key].hp)<=0 and player.global_position.distance_to(other.global_position)<3:
 			revive(int(other_key),40)
-			play_sound.rpc("heal")
+			play_sound.rpc("heal",other.global_position)
 			return
 	for kind in vehicles:
 		if kind in campaign.gear and vehicles[kind].rider==0 and vehicles[kind].node.global_position.distance_to(player.global_position)<3:
@@ -776,7 +808,7 @@ func interact(player: CharacterBody3D,marker_name: String) -> void:
 	elif marker_name=="CollectIncome":
 		campaign.cash+=int(campaign.bank)
 		campaign.bank-=int(campaign.bank)
-		play_sound.rpc("cash")
+		play_sound.rpc("cash",marker.global_position+Vector3.UP)
 		fx.rpc(marker.global_position+Vector3.UP,Color("ffd27a"),1.0)
 		save_campaign()
 	elif marker_name.begins_with("Valve"):
@@ -812,7 +844,7 @@ func sell_loot(player: CharacterBody3D) -> void:
 	campaign.cash+=earned
 	player._sync_inventory_to_owner()
 	notice.rpc("Loot delivered: $%d added to crew funds."%earned)
-	play_sound.rpc("cash")
+	play_sound.rpc("cash",player.global_position+Vector3.UP*1.5)
 	fx.rpc(player.global_position+Vector3.UP*1.5,Color("ffd27a"),1.4)
 	save_campaign()
 
@@ -859,8 +891,7 @@ func travel(id: int,destination: Vector3) -> void:
 func impulse_player(id: int,impulse: Vector3) -> void:
 	var player := player_for(id)
 	if player and player.is_multiplayer_authority():
-		player.external_velocity+=Vector3(impulse.x,0,impulse.z)
-		player.velocity.y+=impulse.y
+		player.apply_external_impulse(impulse)
 
 @rpc("authority","call_local","reliable")
 func apply_progress(recovered: bool) -> void:
@@ -891,19 +922,31 @@ func use_tool(player: CharacterBody3D,direction: Vector3) -> void:
 			if float(data.grapple_cd)>0: return
 			data.grapple_cd=1.2
 			var origin := player.global_position+Vector3.UP*1.3
+			# The launch and the connection are two distinct events: the zip
+			# fires from the hook, the clink lands where the hook lands.
+			play_sound.rpc("grapple",origin)
 			var query := PhysicsRayQueryParameters3D.create(origin,origin+direction*28,31,[player.get_rid()])
 			var hit := get_world_3d().direct_space_state.intersect_ray(query)
 			if hit.is_empty(): return
 			beam.rpc(origin,hit.position,Color("d3c493"))
+			play_sound.rpc("grapple_hit",hit.position)
 			var object = hit.collider
 			if object is RigidBody3D:
 				object.apply_central_impulse((origin-object.global_position).normalized()*object.mass*12)
 			elif object is CharacterBody3D and object.get_parent()==player.get_parent():
 				impulse_player.rpc(int(str(object.name)),(origin-object.global_position).normalized()*12+Vector3.UP*3)
 			else:
-				impulse_player.rpc(id,direction*17+Vector3.UP*9)
-			play_sound.rpc("tool")
+				# Static pull scales with distance and target height: level
+				# shots are mostly planar, high shots add vertical assist,
+				# low shots barely hop. Bounded by the player-side external
+				# cap either way, held keys or not.
+				var to_target: Vector3=hit.position-player.global_position
+				var flat := Vector2(to_target.x,to_target.z)
+				var planar := flat.normalized()*clampf(flat.length()*.85,6.0,13.0)
+				var vertical := clampf(to_target.y*.55,1.2,6.5)
+				impulse_player.rpc(id,Vector3(planar.x,vertical,planar.y))
 		"water":
+			play_sound.rpc("water",player.global_position+Vector3.UP+direction*2)
 			for camera in cameras:
 				if camera.position.distance_to(player.global_position+direction*8)<5:
 					camera.disabled=true
@@ -933,7 +976,7 @@ func use_tool(player: CharacterBody3D,direction: Vector3) -> void:
 					campaign.crystals-=1
 					revive(int(key),100)
 					fx.rpc(other.global_position,Color("acd9ff"),1.5)
-					play_sound.rpc("heal")
+					play_sound.rpc("crystal",other.global_position)
 					save_campaign()
 					return
 		"jetpack":
@@ -947,57 +990,53 @@ func use_tool(player: CharacterBody3D,direction: Vector3) -> void:
 func build_vehicles() -> void:
 	for i in range(3):
 		var kind: String=["cart","truck","racecar"][i]
+		var profile: Dictionary=VehicleProfiles.profile(kind)
 		var body := RigidBody3D.new()
 		body.name=kind.capitalize()
-		body.mass=[8.0,60.0,15.0][i]
+		body.mass=profile.mass
 		body.collision_layer=16
 		body.collision_mask=6
 		body.lock_rotation=true
 		body.linear_damp=.5
+		# Arcade grip: acceleration/braking/coast/lateral-grip all live in the
+		# profile, so the contact solver must not fight the drive with default
+		# friction (mu=1 would cancel most of the truck's 10 m/s^2).
+		var slick := PhysicsMaterial.new()
+		slick.friction=.05
+		slick.bounce=0.0
+		body.physics_material_override=slick
 		body.position=Vector3(-8+i*6,1,12)
 		add_child(body)
+		var size: Vector3=[Vector3(1.6,.5,2.3),Vector3(2.5,1.1,4),Vector3(1.5,.6,2.5)][i]
 		var shape := BoxShape3D.new()
-		shape.size=[Vector3(1.6,.5,2.3),Vector3(2.5,1.1,4),Vector3(1.5,.6,2.5)][i]
+		shape.size=size
 		var collision := CollisionShape3D.new()
 		collision.shape=shape
 		body.add_child(collision)
-		var mesh := MeshInstance3D.new()
-		var box := BoxMesh.new()
-		box.size=shape.size
-		mesh.mesh=box
-		var material := Materials.part([Color("9fc06a"),Color("e8b23a"),Color("d94f4f")][i])
-		mesh.material_override=material
-		body.add_child(mesh)
-		for x in [-shape.size.x*.5,shape.size.x*.5]:
-			for z in [-shape.size.z*.33,shape.size.z*.33]:
-				var wheel := MeshInstance3D.new()
-				var cylinder := CylinderMesh.new()
-				cylinder.top_radius=.35
-				cylinder.bottom_radius=.35
-				cylinder.height=.18
-				wheel.mesh=cylinder
-				wheel.rotation.z=PI*.5
-				wheel.position=Vector3(x,-.3,z)
-				var rubber := Materials.part(Color("1d1526"))
-				wheel.material_override=rubber
-				body.add_child(wheel)
+		# Chamfered nose: a rotated box across the front lower edge turns sharp
+		# wall/curb catches into slides. Vehicle-only - never touches the world.
+		var chamfer := CollisionShape3D.new()
+		var chamfer_shape := BoxShape3D.new()
+		chamfer_shape.size=Vector3(size.x*.85,maxf(.3,size.y*.8),.55)
+		chamfer.shape=chamfer_shape
+		chamfer.position=Vector3(0,size.y*.1,-size.z*.48)
+		chamfer.rotation.x=-PI*.25
+		body.add_child(chamfer)
 		# Cargo walls make carts/trucks carry actual rigid merchandise.
 		if kind!="racecar":
-			for x in [-shape.size.x*.5,shape.size.x*.5]:
+			for x in [-size.x*.5,size.x*.5]:
 				var side := CollisionShape3D.new()
 				var side_shape := BoxShape3D.new()
-				side_shape.size=Vector3(.12,.7,shape.size.z)
+				side_shape.size=Vector3(.12,.7,size.z)
 				side.shape=side_shape
 				side.position=Vector3(x,.5,0)
 				body.add_child(side)
-				var rail := MeshInstance3D.new()
-				var rail_mesh := BoxMesh.new()
-				rail_mesh.size=side_shape.size
-				rail.mesh=rail_mesh
-				rail.position=side.position
-				rail.material_override=material
-				body.add_child(rail)
-		vehicles[kind]={"node":body,"home":body.position,"rider":0,"speed":[6.0,12.0,20.0][i]}
+		# Authored visual rig: chunky body, sprung wheels, driver marker.
+		# The gameplay root above stays the single authoritative body.
+		var rig: VehicleRig=VehicleRig.create(kind)
+		body.add_child(rig)
+		vehicles[kind]={"node":body,"home":body.position,"rider":0,"rig":rig,
+			"half":size*.5,"ram_clock":{},"load":0.0,"hop_clock":-10.0}
 		body.hide()
 		body.freeze=true
 
@@ -1011,37 +1050,134 @@ func drive(movement: Vector2,direction: Vector3) -> void:
 	if not vehicles.has(kind) or vehicles[kind].rider!=id: return
 	vehicle_inputs[kind]={"movement":movement.limit_length(),"direction":direction.normalized(),"time":game_clock}
 
+## Arcade driving: decompose velocity into forward/lateral against the body's
+## own yaw, throttle drives forward speed (accel/brake-then-reverse/coast),
+## lateral grip scrubs sideways slide, and steering yaws at a rate that falls
+## off with speed. Yaw is integrated, never snapped.
 func update_vehicles(delta: float) -> void:
 	for kind in vehicles:
 		var record: Dictionary=vehicles[kind]
 		var body: RigidBody3D=record.node
+		var profile: Dictionary=VehicleProfiles.profile(kind)
 		var enabled: bool=kind in campaign.gear
 		body.visible=enabled
 		body.freeze=not enabled
 		if not enabled: continue
 		var input: Dictionary=vehicle_inputs.get(kind,{})
 		var movement := Vector2.ZERO
-		var forward := Vector3.FORWARD
 		if record.rider>0 and game_clock-float(input.get("time",-10))<.5:
 			movement=input.get("movement",Vector2.ZERO)
-			forward=input.get("direction",Vector3.FORWARD)
-		forward.y=0
-		forward=forward.normalized()
-		var direction := forward*-movement.y+forward.cross(Vector3.UP)*movement.x
-		var wanted: Vector3=direction*float(record.speed)
-		body.linear_velocity.x=move_toward(body.linear_velocity.x,wanted.x,delta*15)
-		body.linear_velocity.z=move_toward(body.linear_velocity.z,wanted.z,delta*15)
-		if direction.length()>.1:
-			body.rotation.y=lerp_angle(body.rotation.y,atan2(-direction.x,-direction.z),delta*4)
+		var yaw: float=body.rotation.y
+		var forward := Vector3(-sin(yaw),0,-cos(yaw))
+		var right := Vector3(cos(yaw),0,-sin(yaw))
+		var v_fwd: float=body.linear_velocity.dot(forward)
+		var v_lat: float=body.linear_velocity.dot(right)
+		var throttle: float=-movement.y
+		# Cheap cargo load estimate feeds the profile's penalties. Refreshed at
+		# 8 Hz instead of every physics frame: a slow scan is indistinguishable
+		# from a per-frame one for a box that changes when items are dropped in.
+		if game_clock-float(record.get("load_clock",-10.0))>=.125:
+			record.load_clock=game_clock
+			record.load=_vehicle_load(kind,body,record.half)
+		var accel: float=profile.acceleration*lerpf(1.0,profile.cargo_acceleration_penalty,record.load)
+		var top_speed: float=profile.max_forward_speed*lerpf(1.0,profile.cargo_speed_penalty,record.load)
+		if throttle>.05:
+			v_fwd=move_toward(v_fwd,top_speed,accel*delta)
+		elif throttle<-.05:
+			if v_fwd>.4:
+				v_fwd=move_toward(v_fwd,0.0,profile.braking_deceleration*delta)
+			else:
+				v_fwd=move_toward(v_fwd,-profile.max_reverse_speed,accel*.7*delta)
+		else:
+			v_fwd=move_toward(v_fwd,0.0,profile.coast_deceleration*delta)
+		v_lat=move_toward(v_lat,0.0,profile.lateral_grip*delta)
+		# Speed-dependent steering: full rate at low speed, tapered at the top.
+		var speed01: float=clampf(absf(v_fwd)/maxf(1.0,profile.max_forward_speed),0.0,1.0)
+		var rate: float=profile.steering_rate*lerpf(1.0,profile.high_speed_steering_multiplier,speed01*speed01)
+		# No steering authority at a standstill; reversing flips the turn.
+		var authority: float=clampf(v_fwd/2.5,-1.0,1.0)
+		body.rotation.y=yaw-movement.x*rate*delta*authority
+		body.linear_velocity=forward*v_fwd+right*v_lat+Vector3(0,body.linear_velocity.y,0)
+		if record.rider>0 and throttle>.1 and v_fwd>0.0:
+			_vehicle_curb_assist(kind,record,body,profile,forward,delta)
 		if body.position.y < -5:
 			body.position=record.home
 			body.linear_velocity=Vector3.ZERO
-		if record.rider>0 and Vector2(body.linear_velocity.x,body.linear_velocity.z).length()>7:
-			for enemy in enemies:
-				if enemy.hp>0 and enemy.global_position.distance_to(body.global_position)<3:
-					enemy.take_damage(delta*40)
-					enemy.state="STUNNED"
-					enemy.timer=1
+		_ram_impacts(kind,record,body,profile)
+
+## Curb assist, server-authoritative. Two forward probes at the vehicle's nose:
+## the low probe finds an obstacle, the high probe (just above the profile's
+## step_height) must stay clear - walls, gates and shelves block it and are
+## never climbed. Grounded vehicles only; the hop is a velocity, never a
+## teleport, and it re-triggers on a short clock so it crests in one bounce.
+func _vehicle_curb_assist(kind: String,record: Dictionary,body: RigidBody3D,profile: Dictionary,forward: Vector3,_delta: float) -> void:
+	if game_clock-float(record.get("hop_clock",-10.0))<.35: return
+	var half: Vector3=record.half
+	var space: PhysicsDirectSpaceState3D=body.get_world_3d().direct_space_state
+	var origin: Vector3=body.global_position
+	var ground_y: float=origin.y-half.y
+	# Grounded gate: no airborne assist. The ray must clear the body's own
+	# half-height to actually reach the ground beneath it.
+	var down := PhysicsRayQueryParameters3D.create(origin,origin+Vector3(0,-(half.y+.35),0),6,[body.get_rid()])
+	if space.intersect_ray(down).is_empty(): return
+	var nose := origin+forward*(half.z*.7)
+	var low := PhysicsRayQueryParameters3D.create(
+		Vector3(nose.x,ground_y+.15,nose.z),Vector3(nose.x,ground_y+.15,nose.z)+forward*.85,6,[body.get_rid()])
+	if space.intersect_ray(low).is_empty(): return
+	var high_y: float=ground_y+profile.step_height+.06
+	var high := PhysicsRayQueryParameters3D.create(
+		Vector3(nose.x,high_y,nose.z),Vector3(nose.x,high_y,nose.z)+forward*.95,6,[body.get_rid()])
+	if not space.intersect_ray(high).is_empty(): return
+	record.hop_clock=game_clock
+	var hop: float=clampf(sqrt(2.0*9.8*(profile.step_height+.18))*1.05,2.2,5.2)
+	body.linear_velocity.y=maxf(body.linear_velocity.y,hop)
+	body.linear_velocity+=forward*.8
+
+## Ram impacts are discrete events with per-enemy cooldowns, replacing the old
+## continuous while-overlapping damage that let a parked car grind a boss down.
+## A hit is geometry plus closing speed: the enemy must sit inside the
+## vehicle's forward box (from just behind the nose to a bumper-reach ahead,
+## laterally inside the body width) AND the vehicle must actually be moving
+## toward it along its own forward axis. Sideways scrapes, reverse nudges and
+## a long nose merely approaching someone never count.
+func _ram_impacts(kind: String,record: Dictionary,body: RigidBody3D,profile: Dictionary) -> void:
+	if record.rider<=0: return
+	var yaw: float=body.rotation.y
+	var forward := Vector3(-sin(yaw),0,-cos(yaw))
+	# Closing speed along the vehicle's own forward axis, not planar magnitude.
+	var closing: float=body.linear_velocity.dot(forward)
+	if closing<float(profile.ram_min_speed): return
+	var half: Vector3=record.half
+	var to_local: Transform3D=body.global_transform.affine_inverse()
+	for enemy in enemies:
+		if enemy.hp<=0: continue
+		var local: Vector3=to_local*(enemy.global_position)
+		if local.z>-(half.z-.3) or local.z<-(half.z+1.1): continue
+		if absf(local.x)>half.x+.45: continue
+		if local.y<-half.y or local.y>half.y+1.6: continue
+		var key: int=enemy.get_instance_id()
+		if game_clock-float(record.ram_clock.get(key,-10.0))<profile.ram_cooldown: continue
+		record.ram_clock[key]=game_clock
+		enemy.take_damage(profile.ram_strength*clampf(closing/(profile.max_forward_speed*2.0),.4,1.0))
+		enemy.state="STUNNED"
+		enemy.timer=1.0
+		fx.rpc(body.global_position+Vector3(0,.5,0),Color("ffd27a"),.7)
+		vehicle_impact.rpc(kind)
+
+## Cheap cargo load: 0..1 from how much rigid merchandise sits in the cargo
+## box. A handful of local bounds checks; no physics queries.
+func _vehicle_load(kind: String,body: RigidBody3D,half: Vector3) -> float:
+	if kind=="racecar": return 0.0
+	var container := get_node_or_null("../ItemContainer")
+	if container==null: return 0.0
+	var to_local := body.global_transform.affine_inverse()
+	var count := 0
+	for item in container.get_children():
+		if item is not RigidBody3D: continue
+		var local: Vector3=to_local*(item.global_position)
+		if absf(local.x)<half.x and absf(local.z)<half.z and local.y>-half.y and local.y<half.y+1.2:
+			count+=1
+	return clampf(count/6.0,0.0,1.0)
 
 func shop_action(player: CharacterBody3D,action: String) -> void:
 	if player.global_position.distance_to(Vector3(-10,-11,32))>7:
@@ -1062,7 +1198,7 @@ func shop_action(player: CharacterBody3D,action: String) -> void:
 			var key := str(player.name)
 			if player_state.has(key):
 				player_state[key].tool=kind
-		play_sound.rpc("cash")
+		play_sound.rpc("cash",player.global_position)
 	elif action=="machine":
 		var price: int=150*campaign.machines.size()
 		if campaign.machines.size()<4 and int(campaign.cash)>=price:
@@ -1389,9 +1525,8 @@ func apply_snapshot(data: Dictionary) -> void:
 		var body: RigidBody3D=vehicles[kind].node
 		body.freeze=true
 		body.visible=kind in campaign.gear
-		body.position=data.cars[kind][0]
-		body.rotation.y=data.cars[kind][1]
 		vehicles[kind].rider=data.cars[kind][2]
+		vehicles[kind].rig.net_update(data.cars[kind][0],data.cars[kind][1])
 	apply_progress(int(campaign.recipes[0])>0)
 	update_machines()
 
@@ -1433,200 +1568,29 @@ func notice(message: String) -> void:
 	toast_clock=5.0
 
 var fx_live: Array[Node]=[]
-# Shared VFX geometry: a unit sphere, flat ring torus and beam shaft are
-# created once per class and scaled per burst, so pops never allocate meshes.
-static var _fx_sphere: SphereMesh
-static var _fx_torus: TorusMesh
-static var _fx_shaft: CylinderMesh
-static var _fx_core: CylinderMesh
-static var _fx_mats: Dictionary = {}
-static var _fx_white: StandardMaterial3D
-
-static func fx_unit_sphere() -> SphereMesh:
-	if _fx_sphere == null:
-		_fx_sphere = SphereMesh.new()
-		_fx_sphere.radius = 1.0
-		_fx_sphere.height = 2.0
-		_fx_sphere.radial_segments = 12
-		_fx_sphere.rings = 7
-	return _fx_sphere
-
-static func fx_unit_torus() -> TorusMesh:
-	if _fx_torus == null:
-		_fx_torus = TorusMesh.new()
-		_fx_torus.inner_radius = .88
-		_fx_torus.outer_radius = 1.1
-		_fx_torus.rings = 32
-		_fx_torus.ring_segments = 8
-	return _fx_torus
-
-static func fx_beam_mesh() -> CylinderMesh:
-	if _fx_shaft == null:
-		_fx_shaft = CylinderMesh.new()
-		_fx_shaft.top_radius = .075
-		_fx_shaft.bottom_radius = .075
-		_fx_shaft.height = 1.0
-		_fx_shaft.radial_segments = 6
-		_fx_shaft.rings = 0
-	return _fx_shaft
-
-static func fx_beam_core_mesh() -> CylinderMesh:
-	if _fx_core == null:
-		_fx_core = CylinderMesh.new()
-		_fx_core.top_radius = .028
-		_fx_core.bottom_radius = .028
-		_fx_core.height = 1.0
-		_fx_core.radial_segments = 6
-		_fx_core.rings = 0
-	return _fx_core
-
-static func fx_base_material(color: Color) -> StandardMaterial3D:
-	var key := color.to_html()
-	if not _fx_mats.has(key):
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color = color
-		mat.roughness = .8
-		_fx_mats[key] = mat
-	return _fx_mats[key]
-
-static func fx_beam_core_material() -> StandardMaterial3D:
-	if _fx_white == null:
-		_fx_white = StandardMaterial3D.new()
-		_fx_white.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		_fx_white.albedo_color = Color(1,1,.85,.9)
-		_fx_white.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		_fx_white.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	return _fx_white
 
 @rpc("authority","call_local","unreliable")
 func fx(point: Vector3,color: Color,size: float) -> void:
 	if DisplayServer.get_name()=="headless": return
-	# Cap live bursts so spammy RPCs can never flood the scene graph.
-	while fx_live.size()>=40:
-		var stale: Node=fx_live.pop_front()
-		if is_instance_valid(stale):
-			stale.queue_free()
-	# Elastic pop: glowing core, expanding flat ring, five debris sparks.
-	# Only the two fading materials are duplicated per burst.
-	var root := Node3D.new()
-	root.position=point
-	add_child(root)
-	fx_live.append(root)
-	var burst_mat: StandardMaterial3D=fx_base_material(color).duplicate()
-	burst_mat.emission_enabled=true
-	burst_mat.emission=color
-	burst_mat.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
-	var core := MeshInstance3D.new()
-	core.mesh=fx_unit_sphere()
-	core.scale=Vector3.ONE*size
-	core.material_override=burst_mat
-	root.add_child(core)
-	var ring := MeshInstance3D.new()
-	ring.mesh=fx_unit_torus()
-	ring.rotation.x=PI*.5
-	ring.scale=Vector3.ONE*size*.15
-	var ring_mat := StandardMaterial3D.new()
-	ring_mat.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED
-	ring_mat.albedo_color=Color(color.r,color.g,color.b,.9)
-	ring_mat.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
-	ring.material_override=ring_mat
-	root.add_child(ring)
-	var tween := create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(core,"scale",Vector3.ONE*size*1.9,.34).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_property(burst_mat,"albedo_color:a",0.0,.32)
-	tween.tween_property(ring,"scale",Vector3.ONE*size*2.3,.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_property(ring_mat,"albedo_color:a",0.0,.4)
-	for i in range(5):
-		var spark := MeshInstance3D.new()
-		spark.mesh=fx_unit_sphere()
-		spark.scale=Vector3.ONE*size*.16
-		spark.material_override=burst_mat
-		root.add_child(spark)
-		var angle := TAU*i/5.0
-		var drift := Vector3(cos(angle),.7,sin(angle)).normalized()*(size*1.6)
-		tween.tween_property(spark,"position",drift,.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		tween.tween_property(spark,"scale",Vector3.ONE*size*.05,.4)
-	tween.chain().tween_callback(func():
-		fx_live.erase(root)
-		root.queue_free())
+	# Elastic pop presentation (geometry caches, cap, tween) lives in WorldFx.
+	WorldFx.pop(self,fx_live,point,color,size)
 
 @rpc("authority","call_local","unreliable")
 func beam(from: Vector3,to: Vector3,color: Color) -> void:
 	if DisplayServer.get_name()=="headless": return
-	var offset := to-from
-	if offset.length()<.01: return
-	while fx_live.size()>=40:
-		var stale: Node=fx_live.pop_front()
-		if is_instance_valid(stale):
-			stale.queue_free()
-	# Oriented additive shaft with a white-hot core and an impact tip.
-	# Both shafts are shared unit cylinders stretched along their length.
-	var root := Node3D.new()
-	root.position=from
-	add_child(root)
-	fx_live.append(root)
-	var dir := offset.normalized()
-	var length := offset.length()
-	var body := MeshInstance3D.new()
-	body.mesh=fx_beam_mesh()
-	body.position=offset*.5
-	body.scale=Vector3(1,length,1)
-	body.quaternion=Quaternion(Vector3.UP,dir)
-	var middle := MeshInstance3D.new()
-	middle.mesh=fx_beam_core_mesh()
-	middle.position=body.position
-	middle.quaternion=body.quaternion
-	middle.scale=body.scale
-	var glow_mat: StandardMaterial3D=fx_base_material(color).duplicate()
-	glow_mat.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED
-	glow_mat.albedo_color=Color(color.r,color.g,color.b,.85)
-	glow_mat.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
-	glow_mat.blend_mode=BaseMaterial3D.BLEND_MODE_ADD
-	body.material_override=glow_mat
-	var core_mat: StandardMaterial3D=fx_beam_core_material().duplicate()
-	middle.material_override=core_mat
-	root.add_child(body)
-	root.add_child(middle)
-	var tip := MeshInstance3D.new()
-	tip.mesh=fx_unit_sphere()
-	tip.position=offset
-	tip.scale=Vector3.ONE*.3
-	tip.material_override=glow_mat
-	root.add_child(tip)
-	var tween := create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(glow_mat,"albedo_color:a",0.0,.22)
-	tween.tween_property(core_mat,"albedo_color:a",0.0,.16)
-	tween.tween_property(body,"scale",Vector3(1.8,length,1.8),.22)
-	tween.tween_property(middle,"scale",Vector3(1.2,length,1.2),.22)
-	tween.tween_property(tip,"scale",Vector3.ONE*.9,.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.chain().tween_callback(func():
-		fx_live.erase(root)
-		root.queue_free())
+	WorldFx.beam(self,fx_live,from,to,color)
+@rpc("authority","call_local","unreliable")
+func play_sound(kind: String, at := Vector3.INF) -> void:
+	## UI/global one-shots stay 2D; events that know where they happened pass
+	## `at` and play spatially. Synthesis and node classes live in GameAudio.
+	GameAudio.play(self,kind,at)
 
 @rpc("authority","call_local","unreliable")
-func play_sound(kind: String) -> void:
-	if DisplayServer.get_name()=="headless": return
-	if not sound_cache.has(kind):
-		var bytes := PackedByteArray()
-		var count := 6000
-		bytes.resize(count*2)
-		var frequency: float={"slap":95.0,"cash":660.0,"win":440.0,"heal":520.0,"tool":180.0}.get(kind,220.0)
-		for i in count:
-			var sample := sin(float(i)/22050.0*TAU*(frequency+float(i)*.025))*pow(1.0-float(i)/count,2)*.25
-			bytes.encode_s16(i*2,int(sample*32767))
-		var wav := AudioStreamWAV.new()
-		wav.format=AudioStreamWAV.FORMAT_16_BITS
-		wav.mix_rate=22050
-		wav.data=bytes
-		sound_cache[kind]=wav
-	var sound := AudioStreamPlayer.new()
-	sound.stream=sound_cache[kind]
-	sound.volume_db=-10
-	add_child(sound)
-	sound.finished.connect(sound.queue_free)
-	sound.play()
+func vehicle_impact(kind: String) -> void:
+	## Ram crash, fired through each peer's own rig ImpactAudio hook so the
+	## sound sits at the vehicle as it keeps moving.
+	if vehicles.has(kind):
+		vehicles[kind].rig.play_impact()
 
 @rpc("any_peer","call_local","unreliable_ordered")
 func carry_aim(direction: Vector3) -> void:
@@ -1654,6 +1618,7 @@ func toggle_cargo(player: CharacterBody3D,direction: Vector3) -> void:
 		nearest_item.freeze=true
 		data.held=str(nearest_item.name)
 		data.carry_direction=direction
+		play_sound.rpc("grab",player.global_position+Vector3.UP)
 
 func release_cargo(id: int,velocity: Vector3) -> void:
 	if not player_state.has(str(id)): return
@@ -1666,8 +1631,10 @@ func release_cargo(id: int,velocity: Vector3) -> void:
 		held.freeze=false
 		held.collision_layer=4
 		held.linear_velocity=velocity
-		# Thrown goods leave a small pop where they leave the mitts.
+		# Thrown goods leave a small pop where they leave the mitts; a gentle
+		# release is a set-down, a fast one is a whooshed throw.
 		fx.rpc(held.global_position,Color("e8e2d0"),.45)
+		play_sound.rpc("throw" if velocity.length()>4.0 else "drop",held.global_position)
 	data.held=""
 
 func render_hazards() -> void:

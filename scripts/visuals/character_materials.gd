@@ -1,8 +1,12 @@
 class_name CharacterMaterials
 extends RefCounted
-## Material factory for characters, props and VFX. Shared materials are cached
-## by color so a hundred spheres cost a handful of materials; bodies that need
-## their own flash/wobble channels call unique() and get a fresh ShaderMaterial.
+## Material and geometry factory for characters, props and VFX. Shared
+## materials are cached by color so a hundred spheres cost a handful of
+## materials; bodies that need their own flash/wobble channels call unique()
+## and get a fresh ShaderMaterial. Primitive meshes follow the same pattern:
+## a sphere part is always the same unit mesh differentiated by the
+## MeshInstance3D's scale, so every caller draws from one cached vertex buffer
+## instead of allocating an identical SphereMesh per part.
 
 const SlimeShader := preload("res://assets/characters/slime.gdshader")
 const PartShader := preload("res://assets/characters/character_part.gdshader")
@@ -15,6 +19,46 @@ static var _metals: Dictionary = {}
 static var _pops: Dictionary = {}
 static var _lits: Dictionary = {}
 static var _glass: StandardMaterial3D
+static var _sphere_meshes: Dictionary = {}
+static var _box_meshes: Dictionary = {}
+static var _cyl_meshes: Dictionary = {}
+
+
+## Shared primitive geometry. The returned meshes are SHARED between every
+## instance that asks for the same dimensions - never mutate one after taking
+## it; scale the MeshInstance3D instead, or build a fresh mesh for a genuinely
+## unique shape.
+static func sphere_mesh(segments := 12, rings := 7, radius := .5, height := 1.0) -> SphereMesh:
+	var key := "%s|%s|%s|%s" % [segments, rings, radius, height]
+	if not _sphere_meshes.has(key):
+		var mesh := SphereMesh.new()
+		mesh.radial_segments = segments
+		mesh.rings = rings
+		mesh.radius = radius
+		mesh.height = height
+		_sphere_meshes[key] = mesh
+	return _sphere_meshes[key]
+
+
+static func box_mesh(size: Vector3) -> BoxMesh:
+	if not _box_meshes.has(size):
+		var mesh := BoxMesh.new()
+		mesh.size = size
+		_box_meshes[size] = mesh
+	return _box_meshes[size]
+
+
+static func cyl_mesh(top: float, bottom: float, height: float, segments := 0) -> CylinderMesh:
+	var key := "%s|%s|%s|%s" % [top, bottom, height, segments]
+	if not _cyl_meshes.has(key):
+		var mesh := CylinderMesh.new()
+		mesh.top_radius = top
+		mesh.bottom_radius = bottom
+		mesh.height = height
+		if segments > 0:
+			mesh.radial_segments = segments
+		_cyl_meshes[key] = mesh
+	return _cyl_meshes[key]
 
 
 ## Chunky matte toy part - the default for vehicles and world props.

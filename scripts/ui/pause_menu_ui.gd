@@ -2,6 +2,7 @@ class_name PauseMenuUI
 extends Control
 
 signal resume_pressed
+signal settings_pressed
 signal main_menu_pressed
 signal quit_pressed
 
@@ -47,6 +48,10 @@ func _update_responsive_layout() -> void:
 
 func _on_resume_pressed() -> void:
 	resume_pressed.emit()
+
+
+func _on_settings_pressed() -> void:
+	settings_pressed.emit()
 
 
 func _on_main_menu_pressed() -> void:

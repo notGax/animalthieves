@@ -2,6 +2,7 @@ extends SceneTree
 var level: Node3D
 var world: Node3D
 var failed := false
+const GameAudio = preload("res://scripts/audio/game_audio.gd")
 func _initialize() -> void:
 	call_deferred("run")
 func check(ok: bool,message: String) -> void:
@@ -98,6 +99,425 @@ func run() -> void:
 	player._spring_arm_offset._trauma=1.0
 	player._spring_arm_offset._apply_feedback(.016)
 	check(player._spring_arm_offset._trauma<1.0,"camera trauma decays instead of latching")
+	# Movement model: acceleration, one jump, coyote/buffer, bounded external
+	# impulses. The step helper takes explicit inputs so no engine input
+	# synthesis is needed; the road at (0,1,-8) is an open corridor.
+	var step := func(dt: float, move: Vector2, buffered: bool, held: bool) -> void:
+		player._movement_step(dt,move,buffered,held)
+	# The open road corridor at (0,2,-12); strafe along +x so the run never
+	# reaches a wall. Physics frames are flushed after teleports so the
+	# server's broadphase matches the new transform.
+	player.global_position=Vector3(0,2,-12)
+	player.velocity=Vector3.ZERO
+	await physics_frame
+	await physics_frame
+	for i in range(90):
+		step.call(1.0/60,Vector2.ZERO,false,false)
+	check(player.is_on_floor(),"movement tests settle onto the road floor")
+	player._locomotion=Vector2.ZERO
+	step.call(1.0/60,Vector2(1,0),false,false)
+	var early_speed: float=Vector2(player.velocity.x,player.velocity.z).length()
+	check(early_speed>0.1 and early_speed<4.0,"ground movement accelerates instead of snapping")
+	for i in range(30):
+		step.call(1.0/60,Vector2(1,0),false,false)
+	var ramped_speed: float=Vector2(player.velocity.x,player.velocity.z).length()
+	check(ramped_speed>=5.0,"walk speed is reached within half a second")
+	# Reversal: sprint forward, then demand the opposite direction. Braking
+	# passes through a momentum transition before accelerating backwards.
+	Input.action_press("shift")
+	for i in range(40):
+		step.call(1.0/60,Vector2(1,0),false,false)
+	var sprint_speed: float=Vector2(player.velocity.x,player.velocity.z).length()
+	check(sprint_speed>8.5,"sprint ramps to the sprint target")
+	Input.action_release("shift")
+	for i in range(10):
+		step.call(1.0/60,Vector2(-1,0),false,false)
+	var braking_speed: float=Vector2(player.velocity.x,player.velocity.z).length()
+	check(braking_speed<sprint_speed*.75,"sprint reversal brakes through momentum first")
+	for i in range(50):
+		step.call(1.0/60,Vector2(-1,0),false,false)
+	var reversed_speed: float=Vector2(player.velocity.x,player.velocity.z).length()
+	check(reversed_speed>3.0 and player.velocity.x<0.0,"reversal completes into the new direction")
+	step.call(1.0/60,Vector2.ZERO,false,false)
+	# Single jump: buffered jump leaves the ground once; mashing jump midair
+	# can never produce a second upward impulse.
+	player._jump_buffer_clock=0.0
+	player._coyote_clock=0.0
+	step.call(1.0/60,Vector2.ZERO,true,true)
+	var jump_velocity: float=player.velocity.y
+	check(absf(jump_velocity-player.JUMP_VELOCITY)<.01,"jump launches with the tuned impulse")
+	var rising: bool=true
+	for i in range(30):
+		step.call(1.0/60,Vector2.ZERO,true,true)
+		if i>2 and player.velocity.y>=jump_velocity:
+			rising=false
+	check(rising,"mashing jump in midair never yields a second jump")
+	# Coyote time: a recent floor contact still allows the jump.
+	player._coyote_clock=player.COYOTE_TIME*.5
+	player._jump_buffer_clock=player.JUMP_BUFFER_TIME
+	player.velocity.y=-2.0
+	step.call(1.0/60,Vector2.ZERO,false,false)
+	check(absf(player.velocity.y-player.JUMP_VELOCITY)<.01,"coyote time allows a late jump")
+	player._coyote_clock=0.0
+	player._jump_buffer_clock=player.JUMP_BUFFER_TIME
+	player.velocity.y=-2.0
+	step.call(1.0/60,Vector2.ZERO,false,false)
+	check(player.velocity.y<0.0,"a stale coyote window does not jump")
+	# Jump buffer: press early, land, the jump fires on touchdown.
+	player._jump_buffer_clock=player.JUMP_BUFFER_TIME
+	player.velocity.y=-6.0
+	player.global_position.y=.4
+	var buffered_peak := 0.0
+	for i in range(6):
+		step.call(1.0/60,Vector2.ZERO,false,false)
+		buffered_peak=maxf(buffered_peak,player.velocity.y)
+	check(buffered_peak>player.JUMP_VELOCITY*.9,"a buffered jump fires on landing")
+	# Variable jump: releasing early shortens the arc via heavier ascent.
+	player.velocity.y=5.0
+	player._apply_gravity(1.0/60,true)
+	var held_gravity_drop: float=5.0-player.velocity.y
+	player.velocity.y=5.0
+	player._apply_gravity(1.0/60,false)
+	var released_gravity_drop: float=5.0-player.velocity.y
+	check(released_gravity_drop>held_gravity_drop*1.5,"releasing jump early cuts the arc")
+	# External impulses: capped, decaying, and never stored in locomotion.
+	for i in range(10):
+		player.apply_external_impulse(Vector3(1000,50,0))
+	var capped: float=Vector2(player.external_velocity.x,player.external_velocity.z).length()
+	check(capped<=player.MAX_EXTERNAL_PLANAR_SPEED+.01,"repeated impulses stay under the external cap")
+	check(player.velocity.y<=player.MAX_IMPULSE_VERTICAL_SPEED+.01 and player.external_velocity.y<=player.MAX_IMPULSE_VERTICAL_SPEED+.01,"vertical impulses stay under the cap")
+	player._decay_external(.5)
+	var decayed: float=Vector2(player.external_velocity.x,player.external_velocity.z).length()
+	check(decayed<capped-5.0,"external impulses decay toward zero")
+	# THE runaway regression: a stationary player, grapple-strength impulse,
+	# no input. Old code re-added external velocity every frame and reached
+	# runaway speeds; the split channels must coast, decay, and stop.
+	player.velocity.y=0.0
+	player.apply_external_impulse(Vector3(13,0,0))
+	var peak_planar: float=0.0
+	for i in range(150):
+		step.call(1.0/60,Vector2.ZERO,false,false)
+		peak_planar=maxf(peak_planar,Vector2(player.velocity.x,player.velocity.z).length())
+	check(peak_planar<=player.MAX_COMBINED_PLANAR_SPEED+.01,"stationary impulse never exceeds the combined cap")
+	check(Vector2(player.velocity.x,player.velocity.z).length()<.5,"stationary player comes fully to rest after an impulse")
+	# Sprinting into the same impulse: allowed, but the sum stays capped.
+	player._locomotion=Vector2(0,-player.SPRINT_SPEED)
+	player.apply_external_impulse(Vector3(13,0,0))
+	step.call(1.0/60,Vector2(0,-1),false,false)
+	var boosted: float=Vector2(player.velocity.x,player.velocity.z).length()
+	check(boosted>player.SPRINT_SPEED and boosted<=player.MAX_COMBINED_PLANAR_SPEED+.01,"sprint plus impulse stacks but stays capped")
+	player._locomotion=Vector2.ZERO
+	player.external_velocity=Vector3.ZERO
+	# Grapple tool: static pull bounded, and far weaker than the old 17+9.
+	player.global_position=Vector3(0,1,-12)
+	player.velocity=Vector3.ZERO
+	await physics_frame
+	await physics_frame
+	for i in range(12):
+		step.call(1.0/60,Vector2.ZERO,false,false)
+	world.player_state["1"].grapple_cd=0.0
+	world.use_tool(player,Vector3(0,-.9,-.44).normalized())
+	var pull: float=Vector2(player.external_velocity.x,player.external_velocity.z).length()
+	check(pull>3.0 and pull<=13.5,"static grapple pull is bounded and readable")
+	check(player.velocity.y<=6.5+.01,"grapple vertical assist is bounded")
+	for i in range(60):
+		step.call(1.0/60,Vector2.ZERO,false,false)
+	check(Vector2(player.velocity.x,player.velocity.z).length()<1.0,"stationary grapple glide settles quickly")
+	world.player_state["1"].grapple_cd=0.0
+	world.use_tool(player,Vector3(0,-.9,-.44).normalized())
+	world.player_state["1"].grapple_cd=0.0
+	world.use_tool(player,Vector3(0,-.9,-.44).normalized())
+	var re_pull: float=Vector2(player.external_velocity.x,player.external_velocity.z).length()
+	check(re_pull<=player.MAX_EXTERNAL_PLANAR_SPEED+.01,"repeated grapples stay under the cap")
+	player.external_velocity=Vector3.ZERO
+	player._locomotion=Vector2.ZERO
+	# --- Vehicle overhaul: profiles, arcade drive, curb assist, ram events ---
+	for enemy in world.enemies: enemy.set_physics_process(false)
+	for kind in ["cart","truck","racecar"]:
+		var vprofile: Dictionary=VehicleProfiles.profile(kind)
+		check(vprofile.size()>=17,"vehicle profile '%s' carries the full tuning field set"%kind)
+		check(vprofile.max_forward_speed>vprofile.max_reverse_speed,"vehicle profile '%s' reverses slower than it drives"%kind)
+	check(VehicleProfiles.profile("cart").max_forward_speed<VehicleProfiles.profile("truck").max_forward_speed
+		and VehicleProfiles.profile("truck").max_forward_speed<VehicleProfiles.profile("racecar").max_forward_speed,
+		"vehicle top speeds escalate cart < truck < racecar")
+	check(VehicleProfiles.profile("truck").step_height>VehicleProfiles.profile("cart").step_height
+		and VehicleProfiles.profile("cart").step_height>VehicleProfiles.profile("racecar").step_height,
+		"curb ability orders truck > cart > racecar")
+	# A private sky lane far from the world keeps vehicle physics deterministic.
+	var lane := StaticBody3D.new()
+	lane.collision_layer=2
+	var lane_shape := CollisionShape3D.new()
+	var lane_box := BoxShape3D.new()
+	lane_box.size=Vector3(10,1,46)
+	lane_shape.shape=lane_box
+	lane.add_child(lane_shape)
+	lane.position=Vector3(140,29.5,140)
+	world.add_child(lane)
+	var curb := StaticBody3D.new()
+	curb.collision_layer=2
+	var curb_shape := CollisionShape3D.new()
+	var curb_box := BoxShape3D.new()
+	curb_box.size=Vector3(8,.45,1)
+	curb_shape.shape=curb_box
+	curb.add_child(curb_shape)
+	# Parked out of the flat-test stretch; repositioned per curb test below.
+	curb.position=Vector3(140,30.225,175)
+	world.add_child(curb)
+	await physics_frame
+	await physics_frame
+	var rig: VehicleRig=world.vehicles.cart.rig
+	check(rig!=null and rig.chassis!=null and rig.driver_marker!=null,"each vehicle carries an authored visual rig with a driver marker")
+	check(rig._wheels.size()==4,"the vehicle rig builds four wheel pivots")
+	check(world.vehicles.truck.rig.driver_marker.position.z<-0.8,"the truck seats its driver in the cab")
+	check(world.vehicles.cart.rig.driver_marker.position.z>1.2,"the cart seats its driver behind the basket")
+	# Spatial audio: powered rigs carry a seamless engine loop that only runs
+	# while somebody is aboard, the human-powered cart carries none at all,
+	# and the world carries the Rat Mart ambience emitters.
+	check(world.vehicles.truck.rig.engine_audio.stream!=null and world.vehicles.truck.rig.engine_audio.stream.loop_mode==AudioStreamWAV.LOOP_FORWARD,
+		"powered rigs carry a seamless looping engine stream")
+	check(not world.vehicles.truck.rig.engine_audio.playing and world.vehicles.cart.rig.engine_audio==null,
+		"engines hold silent until someone is aboard; the cart carries none at all")
+	check(world.vehicles.truck.rig.impact_audio.stream!=null,"the rig's ImpactAudio hook carries the crash stream")
+	check(GameAudio.engine_stream("truck")!=GameAudio.engine_stream("cart") and GameAudio.stream("cash")==GameAudio.stream("cash"),
+		"audio streams are synthesized once and shared from the cache")
+	var ambience := 0
+	for child in world.get_children():
+		if child is AudioStreamPlayer3D and child.stream!=null and child.stream.loop_mode==AudioStreamWAV.LOOP_FORWARD:
+			ambience+=1
+	check(ambience>=6,"the Rat Mart soundscape keeps looping 3D emitters at the fridges, stills and checkout")
+	# Audio mix and wall occlusion: Prefs owns Master/Music/SFX plus muffled
+	# twins; the controller raycasts the camera→source path on the world layer.
+	check(AudioServer.get_bus_index("Music")!=-1 and AudioServer.get_bus_index("SFX")!=-1,
+		"the mix ships Music and SFX buses under Master")
+	check(AudioServer.get_bus_index("Muffled Music")!=-1 and AudioServer.get_bus_index("Muffled SFX")!=-1,
+		"each mix bus has a low-passed muffled twin for sealed-off sources")
+	check(world.audio_occlusion!=null and world.audio_occlusion.get_parent()==world,
+		"the world mounts the wall-occlusion controller over its audio sources")
+	var ambience_on_music := true
+	for child in world.get_children():
+		if child is AudioStreamPlayer3D and child.name.begins_with("Audio_"):
+			# The occlusion controller may have the live emitter routed to the
+			# muffled twin (the lobby camera stands outside the store); what
+			# the check pins is the authored mix bus it fell back from.
+			var authored: String=child.get_meta("bus_base") if child.has_meta("bus_base") else child.bus
+			ambience_on_music=ambience_on_music and authored=="Music"
+	check(ambience_on_music,"ambience emitters ride the Music bus; one-shots stay on SFX")
+	var prefs := root.get_node("Prefs")
+	var saved_master: float=prefs.get_volume("master")
+	prefs.apply_volume("master",0.5)
+	check(absf(db_to_linear(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Master")))-0.5)<0.02,
+		"volume sliders write through to the Master bus")
+	prefs.apply_volume("master",saved_master)
+	check(level.settings_menu!=null and not level.settings_menu.is_menu_visible(),
+		"the settings overlay ships hidden beside the pause menu")
+	check(prefs.ACTIONS.size()>=12 and InputMap.has_action("use_tool") and InputMap.has_action("player_list"),
+		"every gameplay verb is an InputMap action the controls screen can rebind")
+	check(prefs.action_label("attack")=="LMB" and prefs.action_label("carry")!="?",
+		"the HUD legend reads its labels from the live InputMap")
+	# Occlusion: a sealed source starts behind a wall instantly muffled and on
+	# the muffled bus, while an unblocked source keeps its base volume.
+	var saved_cfg := ConfigFile.new()
+	saved_cfg.load(prefs.SAVE_PATH)
+	var saved_carry_code: String=saved_cfg.get_value("keybinds","carry","")
+	var saved_carry: String=prefs.action_label("carry")
+	var alt := InputEventKey.new()
+	alt.physical_keycode=KEY_P
+	check(prefs.event_to_code(alt)=="key:80" and prefs.code_to_event("key:80").physical_keycode==KEY_P,
+		"bindings round-trip through the save-code format")
+	check(prefs.rebind("carry",alt) and prefs.action_label("carry")=="P" and InputMap.event_is_action(alt,"carry"),
+		"rebinding an action updates its InputMap binding and its label")
+	if saved_carry_code!="" and prefs.code_to_event(saved_carry_code)!=null:
+		prefs.rebind("carry",prefs.code_to_event(saved_carry_code))
+	else:
+		prefs.reset_action("carry")
+	check(prefs.action_label("carry")==saved_carry,"restoring the saved binding puts the label back")
+	var occl_camera: Camera3D=world.get_node("LobbyPreview")
+	occl_camera.current=true
+	occl_camera.global_position=Vector3(0,3,-20)
+	occl_camera.look_at(Vector3(0,3,-40))
+	var wall := StaticBody3D.new()
+	wall.collision_layer=2
+	wall.collision_mask=0
+	var wall_shape := CollisionShape3D.new()
+	var wall_box := BoxShape3D.new()
+	# A tiny wall box sits exactly on the camera→test-source ray so the real
+	# ambience emitters (whose rays cross the store at other x) stay clean.
+	wall_box.size=Vector3(0.6,0.6,0.6)
+	wall_shape.shape=wall_box
+	wall.add_child(wall_shape)
+	world.add_child(wall)
+	wall.global_position=Vector3(0,2.625,-25)
+	var sealed := AudioStreamPlayer3D.new()
+	sealed.stream=GameAudio.stream("cash")
+	sealed.bus="SFX"
+	sealed.volume_db=GameAudio.VOLUME_DB["cash"]
+	world.add_child(sealed)
+	sealed.global_position=Vector3(0,1.5,-40)
+	sealed.play()
+	var open_src := AudioStreamPlayer3D.new()
+	open_src.stream=GameAudio.stream("click")
+	open_src.bus="SFX"
+	open_src.volume_db=GameAudio.VOLUME_DB["click"]
+	world.add_child(open_src)
+	open_src.global_position=Vector3(0,3,-18)
+	open_src.play()
+	await physics_frame
+	await physics_frame
+	world.audio_occlusion.refresh()
+	check(sealed.playing and sealed.volume_db<GameAudio.VOLUME_DB["cash"] and sealed.bus=="Muffled SFX",
+		"a source sealed behind world geometry ducks and swaps to the muffled bus")
+	check(open_src.bus=="SFX" and absf(open_src.volume_db-GameAudio.VOLUME_DB["click"])<0.01,
+		"an unblocked source keeps its base volume and bus")
+	world.remove_child(wall)
+	world.remove_child(sealed)
+	world.remove_child(open_src)
+	wall.free()
+	sealed.free()
+	open_src.free()
+	# Let the controller settle everything back to its base bus/volume before
+	# taking the listener away again.
+	for i in 3:
+		world.audio_occlusion.refresh()
+	occl_camera.current=false
+	for owned in ["cart","truck","racecar"]:
+		if not world.campaign.gear.has(owned): world.campaign.gear.append(owned)
+	await physics_frame
+	check(not world.vehicles.cart.node.freeze and world.vehicles.cart.node.visible,"owned vehicles unfreeze and render")
+	# Arcade acceleration toward the profile top speed, no heading drift.
+	world.vehicles.cart.rider=1
+	await place_vehicle(world,"cart",155.0)
+	await drive_vehicle(world,"cart",Vector2(0,-1),70)
+	var cart_planar: float=Vector2(world.vehicles.cart.node.linear_velocity.x,world.vehicles.cart.node.linear_velocity.z).length()
+	check(cart_planar>6.0 and cart_planar<=7.51,"cart accelerates toward its profile top speed (%.2f m/s)"%cart_planar)
+	check(absf(world.vehicles.cart.node.rotation.y)<.05,"the cart holds a straight heading with no steering input")
+	# Throttle-down brakes through momentum before reversing.
+	await drive_vehicle(world,"cart",Vector2(0,1),14)
+	check(world.vehicles.cart.node.linear_velocity.z<-.01 and world.vehicles.cart.node.linear_velocity.z>-3.0,
+		"holding reverse brakes through momentum first")
+	await drive_vehicle(world,"cart",Vector2(0,1),60)
+	var reversing: float=world.vehicles.cart.node.linear_velocity.z
+	check(reversing>3.0 and reversing<=4.05,"reverse speed clamps at the profile maximum (%.2f m/s)"%reversing)
+	# Lateral grip scrubs sideways slide instead of ice-skating.
+	await place_vehicle(world,"cart",155.0)
+	world.vehicles.cart.node.linear_velocity=Vector3(5,0,0)
+	await drive_vehicle(world,"cart",Vector2.ZERO,60)
+	check(absf(world.vehicles.cart.node.linear_velocity.x)<.5,"lateral grip scrubs sideways slide")
+	# Steering tightens with speed instead of snapping yaw.
+	await place_vehicle(world,"cart",155.0)
+	await drive_vehicle(world,"cart",Vector2(0,-1),30)
+	var fast_yaw: float=world.vehicles.cart.node.rotation.y
+	await drive_vehicle(world,"cart",Vector2(1,-1),16)
+	var fast_rate: float=absf(wrapf(world.vehicles.cart.node.rotation.y-fast_yaw,-PI,PI))/.27
+	await place_vehicle(world,"cart",155.0)
+	world.vehicles.cart.node.linear_velocity=Vector3(0,0,-2.5)
+	await drive_vehicle(world,"cart",Vector2(1,-1),16)
+	var slow_rate: float=absf(wrapf(world.vehicles.cart.node.rotation.y,-PI,PI))/.27
+	check(fast_rate<slow_rate*.95,"steering tightens as the vehicle speeds up")
+	# Curb assist, integration: the truck drives over a .45 curb inside its
+	# step height; the assist hops (a velocity), never teleports.
+	curb_box.size=Vector3(8,.45,1)
+	curb.position=Vector3(140,30.225,150)
+	await place_vehicle(world,"truck",157.0)
+	world.vehicles.truck.rider=1
+	await drive_vehicle(world,"truck",Vector2(0,-1),150)
+	check(world.vehicles.truck.node.position.z<149.3,"the truck climbs a curb inside its step height")
+	check(float(world.vehicles.truck["hop_clock"])>=0.0,"the truck's curb assist actually fired")
+	check(world.vehicles.truck.node.position.y<33.0,"the curb assist hops instead of teleporting")
+	check(world.vehicles.truck.rig.engine_audio.playing and not world.vehicles.truck.rig.engine_audio.stream_paused,
+		"the truck's engine loop runs while someone is aboard")
+	# Racecar: step height .18 is far below the .45 curb. It grinds to a stop
+	# at low speed and the assist declines the obstacle (unit-gated too).
+	await place_vehicle(world,"racecar",151.9)
+	world.vehicles.racecar.rider=1
+	world.vehicles.racecar["hop_clock"]=500.0
+	world.vehicles.racecar.node.linear_velocity=Vector3(0,0,-4)
+	await drive_vehicle(world,"racecar",Vector2.ZERO,70)
+	check(world.vehicles.racecar.node.position.z>150.6,"the racecar cannot climb a curb above its step height")
+	check(absf(float(world.vehicles.racecar["hop_clock"])-500.0)<.01,"the racecar's curb assist never fires on tall obstacles")
+	await place_vehicle(world,"racecar",151.9)
+	world.vehicles.racecar["hop_clock"]=-10.0
+	world.vehicles.racecar.node.linear_velocity=Vector3(0,0,-4)
+	world._vehicle_curb_assist("racecar",world.vehicles.racecar,world.vehicles.racecar.node,
+		VehicleProfiles.profile("racecar"),Vector3(0,0,-1),1.0/60)
+	check(absf(float(world.vehicles.racecar["hop_clock"])+10.0)<.01,
+		"the racecar's assist declines an obstacle above its step height at unit level")
+	# Cart: a .28 curb sits inside its .30 step height; unit assist fires, and
+	# the cart crests the curb and keeps driving.
+	curb_box.size=Vector3(8,.28,1)
+	curb.position=Vector3(140,30.14,150)
+	await place_vehicle(world,"cart",152.0)
+	world.vehicles.cart.node.linear_velocity=Vector3(0,0,-3)
+	world._vehicle_curb_assist("cart",world.vehicles.cart,world.vehicles.cart.node,
+		VehicleProfiles.profile("cart"),Vector3(0,0,-1),1.0/60)
+	check(float(world.vehicles.cart["hop_clock"])>=0.0 and world.vehicles.cart.node.linear_velocity.y>2.0,
+		"the cart's curb assist hops a standard curb")
+	await place_vehicle(world,"cart",156.0)
+	await drive_vehicle(world,"cart",Vector2(0,-1),150)
+	check(world.vehicles.cart.node.position.z<149.4,"the cart crests a standard curb and keeps driving")
+	# Ram impacts: discrete events with per-enemy cooldowns.
+	var guard: Node3D=world.enemies[0]
+	var guard_home: Vector3=guard.global_position
+	var guard_state: String=guard.state
+	var alarm_before: float=world.alarm
+	await place_vehicle(world,"truck",155.0)
+	world.vehicles.truck.node.linear_velocity=Vector3(0,0,-12)
+	guard.global_position=world.vehicles.truck.node.global_position+Vector3(0,0,-2)
+	var truck_record: Dictionary=world.vehicles.truck
+	var truck_profile: Dictionary=VehicleProfiles.profile("truck")
+	var guard_hp: float=guard.hp
+	world._ram_impacts("truck",truck_record,world.vehicles.truck.node,truck_profile)
+	var ram_damage: float=guard_hp-guard.hp
+	check(ram_damage>4.0 and guard.state=="STUNNED","a fast truck ram damages and stuns a guard as one impact event")
+	world._ram_impacts("truck",truck_record,world.vehicles.truck.node,truck_profile)
+	check(absf(guard.hp-(guard_hp-ram_damage))<.01,"the ram cooldown blocks immediate repeat damage")
+	world.game_clock+=2.0
+	world._ram_impacts("truck",truck_record,world.vehicles.truck.node,truck_profile)
+	check(absf(guard.hp-(guard_hp-ram_damage*2.0))<.01,"a ram can connect again once the cooldown elapses")
+	# Cheap cargo load estimation counts basket merchandise and feeds penalties.
+	# The estimate refreshes at 8 Hz, so wait past one refresh period.
+	await place_vehicle(world,"cart",155.0)
+	var container: Node3D=level.get_node("Environment/ItemContainer")
+	var crate_homes: Array[Vector3]=[]
+	for i in range(5):
+		var crate: RigidBody3D=container.get_child(i)
+		crate_homes.append(crate.global_position)
+		crate.global_position=world.vehicles.cart.node.global_position+Vector3(0,.8,0)
+		crate.linear_velocity=Vector3.ZERO
+	await create_timer(.2).timeout
+	check(float(world.vehicles.cart["load"])>0.2,"cargo load estimation counts merchandise in the basket (%.2f)"%float(world.vehicles.cart["load"]))
+	for i in range(5):
+		container.get_child(i).global_position=crate_homes[i]
+		container.get_child(i).linear_velocity=Vector3.ZERO
+	# Remote snapshots glide the rig instead of snapping across the map.
+	await place_vehicle(world,"cart",150.0)
+	var smooth_before: Vector3=world.vehicles.cart.node.global_position
+	rig.net_update(smooth_before+Vector3(3,0,0),0.0)
+	await physics_frame
+	await physics_frame
+	await physics_frame
+	check(world.vehicles.cart.node.global_position.distance_to(smooth_before)>1.0,"remote vehicle snapshots glide instead of snapping")
+	rig.reset_network()
+	var car_snapshot: Dictionary=world.snapshot().cars
+	check(car_snapshot.has("cart") and car_snapshot.cart.size()==3,"vehicle snapshots keep the [position,yaw,rider] format")
+	# Park everything and restore the touched guard and gear.
+	world.vehicles.cart.rider=0
+	world.vehicles.truck.rider=0
+	world.vehicles.racecar.rider=0
+	for parked in ["cart","truck","racecar"]:
+		world.vehicle_inputs.erase(parked)
+		world.campaign.gear.erase(parked)
+		var body: RigidBody3D=world.vehicles[parked].node
+		body.position=world.vehicles[parked].home
+		body.rotation.y=0
+		body.linear_velocity=Vector3.ZERO
+		world.vehicles[parked].rig.reset_network()
+	guard.hp=100.0
+	guard.state=guard_state
+	guard.timer=0.0
+	guard.global_position=guard_home
+	world.alarm=alarm_before
+	lane.queue_free()
+	curb.queue_free()
 	var motion: Node3D=world.get_node_or_null("StoreMotion")
 	var paired: int=0
 	if motion:
@@ -237,6 +657,27 @@ func run() -> void:
 	world.player_state["1"].tool="cart"
 	world.request_action("cycle","",Vector3.FORWARD)
 	check(world.player_state["1"].tool in world.ACTIVE_TOOLS and world.campaign.gear.has(world.player_state["1"].tool),"a stale vehicle tool normalizes into the owned active-tool cycle")
+	# Malformed legacy tool state recovers: vehicles can never be tools, the
+	# starter grapple is re-granted when nothing owned is active, and the
+	# invariant (tool in ACTIVE_TOOLS AND in gear) always holds afterwards.
+	var legacy_gear: Array=world.campaign.gear.duplicate()
+	var legacy_tool: String=world.player_state["1"].tool
+	world.campaign.gear=["cart","truck"]
+	world.player_state["1"].tool="racecar"
+	world.ensure_player(1)
+	check(world.player_state["1"].tool=="grapple","a vehicle-tool legacy save recovers to the starter grapple")
+	check(world.campaign.gear.has("grapple"),"the starter grapple is re-granted when the gear holds no active tool")
+	world.campaign.gear=[]
+	world.player_state["1"].tool="laser"
+	world.ensure_player(1)
+	check(world.player_state["1"].tool=="grapple" and world.campaign.gear.has("grapple"),"an unknown tool with an empty gear restores the starter grapple")
+	world.campaign.gear=["water","crystal"]
+	world.player_state["1"].tool="water"
+	world.ensure_player(1)
+	check(world.player_state["1"].tool=="water","an owned active tool is left untouched")
+	check(world.player_state["1"].tool in world.ACTIVE_TOOLS and world.campaign.gear.has(world.player_state["1"].tool),"the active-tool invariant holds after recovery")
+	world.campaign.gear=legacy_gear
+	world.player_state["1"].tool=legacy_tool
 	var packet := var_to_bytes(world.snapshot()).compress(FileAccess.COMPRESSION_DEFLATE)
 	check(packet.size()<1300,"compressed state stays within one network packet")
 	var restored = bytes_to_var(packet.decompress_dynamic(1048576,FileAccess.COMPRESSION_DEFLATE))
@@ -278,3 +719,21 @@ func run() -> void:
 		await create_timer(16).timeout
 	network.leave_game()
 	quit(1 if failed else 0)
+
+## Teleport a vehicle onto the sky lane (x=140) and let it settle onto the
+## floor (a full drop takes ~.35s of physics).
+func place_vehicle(world: Node3D,kind: String,z: float) -> void:
+	var body: RigidBody3D=world.vehicles[kind].node
+	body.position=Vector3(140,30.8,z)
+	body.rotation.y=0.0
+	body.linear_velocity=Vector3.ZERO
+	for i in range(26):
+		await physics_frame
+
+## Feed drive input for N physics frames, refreshing it well inside the .5s
+## input-freshness window the server enforces.
+func drive_vehicle(world: Node3D,kind: String,move: Vector2,frames: int) -> void:
+	for i in range(frames):
+		if i%20==0:
+			world.vehicle_inputs[kind]={"movement":move,"direction":Vector3.FORWARD,"time":world.game_clock}
+		await physics_frame

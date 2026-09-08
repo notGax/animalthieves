@@ -8,13 +8,30 @@
 size = Vector3(0.65, 0.4, 0.5)
 
 [sub_resource type="StandardMaterial3D" id="r2"]
+albedo_color = Color(0.7882, 0.6588, 0.4157, 1)
+roughness = 0.82
+
+[sub_resource type="BoxMesh" id="r3"]
+size = Vector3(0.68, 0.43, 0.08)
+
+[sub_resource type="StandardMaterial3D" id="r4"]
+albedo_color = Color(0.1686, 0.1294, 0.2196, 1)
+roughness = 0.82
+
+[sub_resource type="BoxMesh" id="r5"]
+size = Vector3(0.08, 0.43, 0.52)
+
+[sub_resource type="BoxMesh" id="r6"]
+size = Vector3(0.24, 0.16, 0.02)
+
+[sub_resource type="StandardMaterial3D" id="r7"]
 albedo_color = Color(1.0, 0.8235, 0.2902, 1)
 roughness = 0.82
 
-[sub_resource type="BoxShape3D" id="r3"]
+[sub_resource type="BoxShape3D" id="r8"]
 size = Vector3(0.65, 0.8, 0.5)
 
-[sub_resource type="SceneReplicationConfig" id="r4"]
+[sub_resource type="SceneReplicationConfig" id="r9"]
 properties/0/path = NodePath(".:position")
 properties/0/spawn = true
 properties/0/replication_mode = 2
@@ -38,9 +55,24 @@ position = Vector3(0, 0.2, 0)
 mesh = SubResource("r1")
 material_override = SubResource("r2")
 
+[node name="StrapZ" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.2, 0)
+mesh = SubResource("r3")
+material_override = SubResource("r4")
+
+[node name="StrapX" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.2, 0)
+mesh = SubResource("r5")
+material_override = SubResource("r4")
+
+[node name="Stamp" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.205, 0.26)
+mesh = SubResource("r6")
+material_override = SubResource("r7")
+
 [node name="Collision" type="CollisionShape3D" parent="."]
 position = Vector3(0, 0.4, 0)
-shape = SubResource("r3")
+shape = SubResource("r8")
 
 [node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
-replication_config = SubResource("r4")
+replication_config = SubResource("r9")

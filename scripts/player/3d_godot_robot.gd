@@ -17,11 +17,7 @@ func apply_rotation(_velocity: Vector3) -> void:
 
 func get_movement_animation(_velocity: Vector3) -> StringName:
 	if not _character.is_on_floor():
-		if _velocity.y < 0:
-			return &"Fall"
-		if _current_state == &"Jump2":
-			return &"Jump2"
-		return &"Jump"
+		return &"Fall" if _velocity.y < 0 else &"Jump"
 
 	if _velocity:
 		if _character._is_running() and _character.is_on_floor():
