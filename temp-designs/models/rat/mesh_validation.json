@@ -1,0 +1,218 @@
+{
+  "GEO-Rat_Torso": {
+    "vertices": 120,
+    "triangles": 236,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Neck": {
+    "vertices": 30,
+    "triangles": 56,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Head": {
+    "vertices": 96,
+    "triangles": 188,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Ear_Left": {
+    "vertices": 16,
+    "triangles": 28,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_InnerEar_Left": {
+    "vertices": 16,
+    "triangles": 28,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Ear_Right": {
+    "vertices": 16,
+    "triangles": 28,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_InnerEar_Right": {
+    "vertices": 16,
+    "triangles": 28,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Eye_Left": {
+    "vertices": 86,
+    "triangles": 168,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Eye_Right": {
+    "vertices": 86,
+    "triangles": 168,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Nose": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Mouth": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Incisor_Left": {
+    "vertices": 12,
+    "triangles": 20,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Incisor_Right": {
+    "vertices": 12,
+    "triangles": 20,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Arm_Left": {
+    "vertices": 56,
+    "triangles": 108,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Palm_Left": {
+    "vertices": 32,
+    "triangles": 60,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Finger_Left_1": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Finger_Left_2": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Finger_Left_3": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Thumb_Left": {
+    "vertices": 21,
+    "triangles": 38,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Leg_Left": {
+    "vertices": 56,
+    "triangles": 108,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Foot_Left": {
+    "vertices": 32,
+    "triangles": 60,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Toe_Left_1": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Toe_Left_2": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Toe_Left_3": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Arm_Right": {
+    "vertices": 56,
+    "triangles": 108,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Palm_Right": {
+    "vertices": 32,
+    "triangles": 60,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Finger_Right_1": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Finger_Right_2": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Finger_Right_3": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Thumb_Right": {
+    "vertices": 21,
+    "triangles": 38,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Leg_Right": {
+    "vertices": 56,
+    "triangles": 108,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Foot_Right": {
+    "vertices": 32,
+    "triangles": 60,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Toe_Right_1": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Toe_Right_2": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Toe_Right_3": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Rat_Tail": {
+    "vertices": 49,
+    "triangles": 94,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "comparison": "Fixed reference-pixel registration. Pink is reference only; cyan is model only.",
+  "front_mask_iou": 0.9485520450252863,
+  "threshold": 0.9,
+  "centroid_distance_px": 4.243191997572385,
+  "expected_primary_parts": 4,
+  "actual_primary_parts": 4,
+  "primary_parts_pass": true,
+  "eyes_expected": 2,
+  "eyes_actual": 2,
+  "front_mask_pass": true,
+  "centroid_pass": true,
+  "reference_face_centers": [
+    [
+      160,
+      294
+    ],
+    [
+      324,
+      294
+    ]
+  ],
+  "model_face_centers": [
+    [
+      158.96514745308312,
+      293.769436997319
+    ],
+    [
+      324.67791411042947,
+      293.63496932515335
+    ]
+  ],
+  "face_center_errors_px": [
+    1.0602259627388986,
+    0.7699447608097479
+  ],
+  "face_pass": true,
+  "limitations": "Front view is primary; curved depth interpreted from side and hero. Fin pose differs across generated views. Exactly two pectoral fins and a single intact forked caudal fin.",
+  "pass": true
+}

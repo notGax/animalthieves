@@ -1,0 +1,27 @@
+{
+  "roundtrip_pass": true,
+  "mesh_count": 1,
+  "materials": [
+    "MAT-Fish | bead eyes and mouth",
+    "MAT-Fish | blue fins",
+    "MAT-Fish | dark mackerel bands",
+    "MAT-Fish | silver belly",
+    "MAT-Fish | slate blue"
+  ],
+  "triangles": 1104,
+  "bounds_error_metres": 0.0,
+  "bounds_metres": [
+    [
+      -0.48847925662994385,
+      -0.8840000033378601,
+      0.004608294926583767
+    ],
+    [
+      0.48847925662994385,
+      0.47999998927116394,
+      2.4285714626312256
+    ]
+  ],
+  "bytes": 85552,
+  "note": "Export has one character mesh with five material slots. Editable Blender source keeps 8 named parts. No rig or animations."
+}

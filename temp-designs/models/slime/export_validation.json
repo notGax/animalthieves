@@ -1,0 +1,15 @@
+{
+  "mesh_count": 4,
+  "names": [
+    "GEO-Slime_Body",
+    "GEO-Slime_Eye_Left",
+    "GEO-Slime_Eye_Right",
+    "GEO-Slime_Mouth"
+  ],
+  "materials": [
+    "MAT-Face | charcoal",
+    "MAT-Slime | change Base Color for player color"
+  ],
+  "bytes": 81080,
+  "roundtrip_pass": true
+}

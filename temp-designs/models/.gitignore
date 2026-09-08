@@ -1,0 +1,6 @@
+# Blender automatic save backups
+*.blend[0-9]*
+
+# Local Python bytecode
+__pycache__/
+*.pyc

@@ -1,0 +1,19 @@
+{
+  "primary_groups": {
+    "torso": true,
+    "head": true,
+    "left ear": true,
+    "right ear": true,
+    "left arm and hand": true,
+    "right arm and hand": true,
+    "left leg and foot": true,
+    "right leg and foot": true,
+    "tail": true,
+    "nose": true
+  },
+  "primary_count": 10,
+  "eye_count": 2,
+  "mesh_count": 36,
+  "triangle_count": 2426,
+  "geometry_pass": true
+}

@@ -1,0 +1,50 @@
+{
+  "GEO-Fish_Body": {
+    "vertices": 272,
+    "triangles": 540,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Fish_PectoralFin_Left": {
+    "vertices": 16,
+    "triangles": 28,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Fish_PectoralFin_Right": {
+    "vertices": 16,
+    "triangles": 28,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Fish_Mouth": {
+    "vertices": 18,
+    "triangles": 32,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Fish_LowerJaw": {
+    "vertices": 40,
+    "triangles": 76,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Fish_Eye_Left": {
+    "vertices": 86,
+    "triangles": 168,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Fish_Eye_Right": {
+    "vertices": 86,
+    "triangles": 168,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Fish_CaudalFin": {
+    "vertices": 34,
+    "triangles": 64,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  }
+}

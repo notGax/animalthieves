@@ -1,0 +1,26 @@
+{
+  "roundtrip_pass": true,
+  "mesh_count": 1,
+  "materials": [
+    "MAT-Rat | bead eyes and smile",
+    "MAT-Rat | charcoal coat",
+    "MAT-Rat | coral skin",
+    "MAT-Rat | incisors"
+  ],
+  "triangles": 2426,
+  "bounds_error_metres": 0.0,
+  "bounds_metres": [
+    [
+      -0.5959274768829346,
+      -1.2388896942138672,
+      0.004999999888241291
+    ],
+    [
+      0.9261021614074707,
+      1.970844030380249,
+      2.430000066757202
+    ]
+  ],
+  "bytes": 165656,
+  "note": "Export has one character mesh with four material slots. Editable Blender source keeps 36 named parts. No rig or animations."
+}

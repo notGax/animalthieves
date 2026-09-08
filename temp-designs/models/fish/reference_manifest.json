@@ -1,0 +1,39 @@
+{
+  "source_files": [
+    "selected-concepts/fish.png"
+  ],
+  "primary_view": "front upper-right panel",
+  "crop_pixels": [
+    970,
+    35,
+    1220,
+    590
+  ],
+  "coordinate_mapping": "X=(pixel_x-1094)/217; Z=(579-pixel_y)/217; Y from side and hero panels",
+  "expected_primary_parts": {
+    "count": 4,
+    "labels": [
+      "body",
+      "left pectoral fin",
+      "right pectoral fin",
+      "forked caudal fin"
+    ]
+  },
+  "structural_parts": [
+    "continuous skinny hunched fish body",
+    "two naturally-sized pectoral fins",
+    "single intact forked tail fin supporting whole body"
+  ],
+  "decorative_parts": [
+    "exactly two tiny bead eyes",
+    "compact open mouth and lower jaw",
+    "blue crown dark angular mackerel bands and silver belly"
+  ],
+  "texture_regions": [],
+  "validation_thresholds": {
+    "front_mask_iou_min": 0.9,
+    "bbox_center_tolerance_px": 12,
+    "part_count_exact": true
+  },
+  "interpretation": "Front controls silhouette and facial landmarks; side/hero control hunched depth. No human arms, legs, hands, or separate feet. Working height approximately 2.43 m, equal to Rat Form."
+}

@@ -1,0 +1,71 @@
+{
+  "iou": 0.9686594539993089,
+  "centroid_distance_px": 2.5487003624024758,
+  "alignment": "uniform width scale and bbox center; near-front reference is not calibrated orthographic",
+  "reference_bbox": [
+    11,
+    15,
+    522,
+    299
+  ],
+  "render_original_bbox": [
+    124,
+    167,
+    889,
+    589
+  ],
+  "pass": true,
+  "limitations": "silhouette agreement does not establish exact 3D reconstruction",
+  "reference_face_components": [
+    {
+      "pixels": 4981,
+      "center": [
+        280.531218630797,
+        216.02128086729573
+      ]
+    },
+    {
+      "pixels": 274,
+      "center": [
+        204.93430656934308,
+        156.3905109489051
+      ]
+    },
+    {
+      "pixels": 268,
+      "center": [
+        319.63432835820896,
+        157.43283582089552
+      ]
+    }
+  ],
+  "render_face_components": [
+    {
+      "pixels": 3919,
+      "center": [
+        280.0750191375351,
+        219.74763970400613
+      ]
+    },
+    {
+      "pixels": 242,
+      "center": [
+        204.6818181818182,
+        157.34297520661158
+      ]
+    },
+    {
+      "pixels": 238,
+      "center": [
+        319.10504201680675,
+        157.23949579831933
+      ]
+    }
+  ],
+  "face_centroid_errors_px_mouth_left_right": [
+    3.7541800912558982,
+    0.9853621405571039,
+    0.5634930305910646
+  ],
+  "face_features_pass": true
+}

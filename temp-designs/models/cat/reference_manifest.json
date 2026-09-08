@@ -1,0 +1,12 @@
+{
+  "source_files": ["selected-concepts/cat.png"],
+  "primary_view": "upper-right front concept",
+  "front_crop": [955, 30, 1320, 570],
+  "coordinate_registration": "x=(pixel_x-1102)/200; z=(555-pixel_y)/200. Side depths inferred from lower-right view.",
+  "expected_primary_parts": {"count": 10, "labels": ["torso", "head", "left ear", "right ear", "left arm and hand", "right arm and hand", "left leg and foot", "right leg and foot", "tail", "muzzle"]},
+  "structural_parts": ["torso", "head", "ears", "two arms", "two hands with three fingers and an opposed thumb each", "two legs", "two feet", "one continuous question-mark tail"],
+  "decorative_parts": ["two dark bead eyes", "cream inner ears", "cream muzzle", "small curved mouth", "cream finger ends and three toes per foot"],
+  "texture_regions": [],
+  "validation_thresholds": {"front_mask_iou_min": 0.90, "bbox_center_tolerance_px": 12, "part_count_exact": true},
+  "limitations": "Generated concept views are not calibrated orthographic drawings. Front proportions take priority; depth and unseen back surfaces are interpreted. Static posed model, not a deformation rig."
+}

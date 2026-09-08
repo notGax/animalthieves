@@ -1,0 +1,48 @@
+{
+  "source_files": [
+    "selected-concepts/rat.png"
+  ],
+  "primary_view": "front, upper right panel",
+  "crop_pixels": [
+    960,
+    35,
+    1305,
+    550
+  ],
+  "coordinate_mapping": "X=(pixel_x-1100)/200; Z=(537-pixel_y)/200; depth interpreted from hero and side panels",
+  "expected_primary_parts": {
+    "count": 10,
+    "labels": [
+      "torso",
+      "head",
+      "left ear",
+      "right ear",
+      "left arm and hand",
+      "right arm and hand",
+      "left leg and foot",
+      "right leg and foot",
+      "tail",
+      "nose"
+    ]
+  },
+  "structural_parts": [
+    "narrow hunched torso",
+    "pointed elongated skull and muzzle",
+    "two uneven polygonal ears",
+    "two long thin arms with three fingers and opposed thumb each",
+    "two bent legs and broad three-toed feet",
+    "single tapered angular tail"
+  ],
+  "decorative_parts": [
+    "two tiny dark bead eyes",
+    "coral inner ears nose fingers toes and tail",
+    "compact dark mouth and two small ivory incisors"
+  ],
+  "texture_regions": [],
+  "validation_thresholds": {
+    "front_mask_iou_min": 0.9,
+    "bbox_center_tolerance_px": 12,
+    "part_count_exact": true
+  },
+  "interpretation": "Generated front and side views differ in arm pose. Front controls projected silhouette; hero/side control depth and hunch. Extra dark eye-like marks in generated image are discarded to honor exactly two eyes in CONTEXT.md. Mouth remains provisional as selected README states."
+}

@@ -1,0 +1,49 @@
+{
+  "comparison": "Fixed reference-pixel registration. Pink is reference only; cyan is model only.",
+  "front_mask_iou": 0.9027977177883078,
+  "threshold": 0.9,
+  "centroid_distance_px": 2.750708563260205,
+  "expected_primary_parts": 10,
+  "actual_primary_parts": 10,
+  "primary_parts_pass": true,
+  "eyes_expected": 2,
+  "eyes_actual": 2,
+  "front_mask_pass": true,
+  "centroid_pass": true,
+  "reference_face_centers": [
+    [
+      273.67875647668393,
+      244.26943005181346
+    ],
+    [
+      302.88709677419354,
+      243.6021505376344
+    ],
+    [
+      292.8536585365854,
+      315.1829268292683
+    ]
+  ],
+  "model_face_centers": [
+    [
+      273.53968253968253,
+      243.62433862433863
+    ],
+    [
+      301.53968253968253,
+      243.62962962962962
+    ],
+    [
+      291.43388429752065,
+      312.97520661157023
+    ]
+  ],
+  "face_center_errors_px": [
+    0.6599125015898514,
+    1.347694408929474,
+    2.624840461731847
+  ],
+  "face_pass": true,
+  "limitations": "Hand pose and toes in the generated views disagree. Front view is primary; depth is interpreted.",
+  "pass": true
+}

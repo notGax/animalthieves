@@ -1,0 +1,206 @@
+{
+  "GEO-Cat_Torso": {
+    "vertices": 120,
+    "triangles": 236,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Neck": {
+    "vertices": 30,
+    "triangles": 56,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Head": {
+    "vertices": 35,
+    "triangles": 66,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Ear_Left": {
+    "vertices": 9,
+    "triangles": 14,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_InnerEar_Left": {
+    "vertices": 10,
+    "triangles": 16,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Ear_Right": {
+    "vertices": 9,
+    "triangles": 14,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_InnerEar_Right": {
+    "vertices": 10,
+    "triangles": 16,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Muzzle": {
+    "vertices": 60,
+    "triangles": 116,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Eye_Left": {
+    "vertices": 86,
+    "triangles": 168,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Eye_Right": {
+    "vertices": 86,
+    "triangles": 168,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Mouth": {
+    "vertices": 56,
+    "triangles": 108,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Arm_Left": {
+    "vertices": 56,
+    "triangles": 108,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Palm_Left": {
+    "vertices": 32,
+    "triangles": 60,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Finger_Left_1": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Finger_Left_2": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Finger_Left_3": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Thumb_Left": {
+    "vertices": 28,
+    "triangles": 52,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Leg_Left": {
+    "vertices": 56,
+    "triangles": 108,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Foot_Left": {
+    "vertices": 40,
+    "triangles": 76,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Toe_Left_1": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Toe_Left_2": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Toe_Left_3": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Arm_Right": {
+    "vertices": 56,
+    "triangles": 108,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Palm_Right": {
+    "vertices": 32,
+    "triangles": 60,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Finger_Right_1": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Finger_Right_2": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Finger_Right_3": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Thumb_Right": {
+    "vertices": 28,
+    "triangles": 52,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Leg_Right": {
+    "vertices": 56,
+    "triangles": 108,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Foot_Right": {
+    "vertices": 40,
+    "triangles": 76,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Toe_Right_1": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Toe_Right_2": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Toe_Right_3": {
+    "vertices": 24,
+    "triangles": 44,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  },
+  "GEO-Cat_Tail": {
+    "vertices": 112,
+    "triangles": 220,
+    "non_manifold_edges": 0,
+    "degenerate_faces": 0
+  }
+}

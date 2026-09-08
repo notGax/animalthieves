@@ -1,0 +1,40 @@
+{
+  "comparison": "Fixed reference-pixel registration. Pink is reference only; cyan is model only.",
+  "front_mask_iou": 0.9200151663448227,
+  "threshold": 0.9,
+  "centroid_distance_px": 3.7379886598834893,
+  "expected_primary_parts": 10,
+  "actual_primary_parts": 10,
+  "primary_parts_pass": true,
+  "eyes_expected": 2,
+  "eyes_actual": 2,
+  "front_mask_pass": true,
+  "centroid_pass": true,
+  "reference_face_centers": [
+    [
+      240,
+      256
+    ],
+    [
+      290,
+      256
+    ]
+  ],
+  "model_face_centers": [
+    [
+      239.37142857142857,
+      255.24285714285713
+    ],
+    [
+      289.5507246376812,
+      255.28985507246375
+    ]
+  ],
+  "face_center_errors_px": [
+    0.9840565771025548,
+    0.8403297979318394
+  ],
+  "face_pass": true,
+  "limitations": "Front view primary; depth interpreted from hero and side. Duplicate eye artifacts discarded; compact two-incisor mouth follows documented choice.",
+  "pass": true
+}

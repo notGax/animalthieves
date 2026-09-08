@@ -1,0 +1,22 @@
+{
+  "GEO-Slime_Body": {
+    "vertices": 254,
+    "triangles": 504,
+    "non_manifold_edges": 0
+  },
+  "GEO-Slime_Eye_Left": {
+    "vertices": 114,
+    "triangles": 224,
+    "non_manifold_edges": 0
+  },
+  "GEO-Slime_Eye_Right": {
+    "vertices": 114,
+    "triangles": 224,
+    "non_manifold_edges": 0
+  },
+  "GEO-Slime_Mouth": {
+    "vertices": 564,
+    "triangles": 1116,
+    "non_manifold_edges": 0
+  }
+}
