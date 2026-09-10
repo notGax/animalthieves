@@ -1,5 +1,7 @@
 # Rat Form
 
+**Rigged version:** See [`rigged/README.md`](rigged/README.md) for the editable rig, skeletal GLB, sneak walk, alert idle, and movement previews. The files described below remain the original static model.
+
 Static low-poly model based on `selected-concepts/rat.png` and the Rat Form definition in `CONTEXT.md`.
 
 - `rat.blend`: editable source with 36 named closed mesh components, four character materials, five cameras, studio lighting, and the packed selected reference.

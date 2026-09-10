@@ -1,0 +1,18 @@
+{
+  "mesh_count": 1,
+  "bone_count": 44,
+  "triangles": 3066,
+  "materials": 4,
+  "clips": {
+    "Sneak_Walk": {
+      "sampled_pose_error_m": 1.9314111341373064e-06,
+      "duration_seconds": 2.0
+    },
+    "Alert_Idle": {
+      "sampled_pose_error_m": 1.5702353266533464e-06,
+      "duration_seconds": 3.0
+    }
+  },
+  "bytes": 472404,
+  "pass": true
+}

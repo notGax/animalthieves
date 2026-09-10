@@ -1,0 +1,26 @@
+{
+  "bones": 52,
+  "deform_bones": 43,
+  "meshes": 36,
+  "unweighted_or_bad_vertices": [],
+  "max_influences": 2,
+  "max_weight_sum_error": 2.9802322387695312e-08,
+  "unposed_IK_bind_shape_error_m": 0.0017106082053420066,
+  "clips": {
+    "Sneak_Walk": {
+      "loop_vertex_error_m": 0.0,
+      "min_foot_height_m": 0.005000175908207893,
+      "max_IK_endpoint_error_m": 5.127385417844431e-07,
+      "max_vertex_motion_m": 0.4026153502965857,
+      "max_limb_edge_stretch_ratio": 1.233504915673351
+    },
+    "Alert_Idle": {
+      "loop_vertex_error_m": 0.0,
+      "min_foot_height_m": 0.005000169388949871,
+      "max_IK_endpoint_error_m": 5.503352079576071e-07,
+      "max_vertex_motion_m": 0.4107922069951097,
+      "max_limb_edge_stretch_ratio": 1.0452094991019734
+    }
+  },
+  "pass": true
+}
